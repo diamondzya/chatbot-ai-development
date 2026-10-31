@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configuration check
+        run: npm run check
+
+      - name: Retrieval evaluation thresholds
+        run: npm run eval
+
+      - name: Tests
+        run: npm test
+        env:
+          CI: true
+
+      - name: Upload retrieval report
+        if: always()
+        run: npm run eval -- --json > retrieval-report.json || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retrieval-report-node-${{ matrix.node }}
+          path: retrieval-report.json
+          if-no-files-found: ignore

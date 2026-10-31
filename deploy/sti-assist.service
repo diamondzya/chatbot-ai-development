@@ -1,0 +1,35 @@
+# systemd unit sample for running STI Assist AI on a small server.
+#
+# 1. Copy this file to /etc/systemd/system/sti-assist.service
+# 2. Adjust User, WorkingDirectory, and EnvironmentFile for your machine.
+# 3. systemctl daemon-reload && systemctl enable --now sti-assist
+#
+# Put secrets in /etc/sti-assist.env (chmod 600, owned by the service user):
+#   AI_API_KEY=...
+#   PORT=3000
+#   TRUST_PROXY=1            # when behind nginx/Caddy
+#   NODE_ENV=production
+#   LOG_LEVEL=info
+
+[Unit]
+Description=STI Assist AI handbook assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sti-assist
+WorkingDirectory=/opt/sti-assist
+EnvironmentFile=/etc/sti-assist.env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=3
+
+# The index and embedding cache are read-only at runtime.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/sti-assist/data/models
+
+[Install]
+WantedBy=multi-user.target

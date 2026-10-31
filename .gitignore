@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# generated handbook data and local embedding model cache
+data/index.json
+data/handbook.json
+data/models/
+data/*.tmp
+
+# the handbook itself may be confidential; keep it out of version control
+STI High School Student Handbook 2026 (ORCA).pdf
+*.pdf
+
+# logs and editor files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# test output
+coverage/

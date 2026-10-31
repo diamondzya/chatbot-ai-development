@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import pypdf; print\\('pypdf', pypdf.__version__\\)\")",
+      "Bash(python -c \"import fitz; print\\('pymupdf ok'\\)\")",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber ok'\\)\")",
+      "Bash(python -m pip install pypdf --quiet)",
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p /tmp/sti-work)",
+      "Bash(rtk wc *)",
+      "Bash(python -m pip install fontTools --quiet)",
+      "Bash(mkdir -p \"C:/Users/cyrus/AppData/Local/Temp/sti-work\")",
+      "Bash(rtk grep *)",
+      "WebSearch",
+      "WebFetch(domain:docs.api.nvidia.com)",
+      "WebFetch(domain:docs.nvidia.com)",
+      "WebFetch(domain:build.nvidia.com)",
+      "Bash(rtk curl *)",
+      "Bash(cp .env.example .env)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}
