@@ -35,11 +35,9 @@
   "kv_namespaces": [
     {
       "binding": "HANDBOOK_INDEX",
-      // Replace with the id printed by:
-      //   npx wrangler kv namespace create HANDBOOK_INDEX
-      // Local `wrangler dev` works with this placeholder; `wrangler deploy`
-      // requires the real id.
-      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+      // Created with: npx wrangler kv namespace create HANDBOOK_INDEX
+      // List namespaces with: npx wrangler kv namespace list
+      "id": "9c9355ef85094770b314c97f0d9c7ce5"
     }
   ],
 
