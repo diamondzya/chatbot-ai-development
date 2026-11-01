@@ -1,7 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { imageSize } from 'image-size';
 import { config } from '../config/index.js';
 import { HttpError } from '../errors.js';
+
+// image-size is imported lazily: this service only runs when attachments are
+// enabled, which excludes the Cloudflare Worker deployment.
+let imageSizePromise = null;
+function loadImageSize() {
+  if (!imageSizePromise) imageSizePromise = import('image-size');
+  return imageSizePromise;
+}
 
 const ALLOWED_TYPES = new Map([
   ['jpg', 'image/jpeg'],
@@ -80,7 +87,7 @@ export function stopAttachmentCleanup() {
   }
 }
 
-export function validateAndStoreImage({ buffer, originalName, ownerKey }) {
+export async function validateAndStoreImage({ buffer, originalName, ownerKey }) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new HttpError(400, 'empty_image', 'The uploaded image is empty.');
   }
@@ -94,6 +101,7 @@ export function validateAndStoreImage({ buffer, originalName, ownerKey }) {
 
   let dimensions;
   try {
+    const { imageSize } = await loadImageSize();
     dimensions = imageSize(buffer);
   } catch {
     throw new HttpError(

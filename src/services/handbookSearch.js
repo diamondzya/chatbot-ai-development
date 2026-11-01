@@ -1,6 +1,6 @@
-import fs from 'node:fs/promises';
 import { config } from '../config/index.js';
 import { cosineSimilarity, embedTexts } from './embeddings.js';
+import { getWorkerKv } from './runtime.js';
 
 const STOPWORDS = new Set(
   `a an and are as at be been being but by can could did do does doing for from had has have having he her here hers herself him himself his how i if in into is it its itself just me more most my myself no nor not now of off on once only or other our ours ourselves out over own same she should so some such than that the their theirs them themselves then there these they this those through to too under until up very was we were what when where which while who whom why will with would you your yours yourself yourselves po ang ng mga sa at si ni kay para naman lang ba daw kasi yung ito iyon ako ikaw siya kami tayo sila ko mo niya natin ninyo nila may mayroon walang wala hindi oo opo`.split(
@@ -422,6 +422,37 @@ function bm25Scores(queryTokens, bm25) {
 
 let cachedIndex = null;
 let cachedPromise = null;
+let warnedAboutLocalEmbeddings = false;
+
+// The index is a local build artifact. Node reads it from disk; the Worker
+// reads it from the HANDBOOK_INDEX KV binding (uploaded with `npm run
+// kv:upload`) and keeps it cached in the isolate after the first request.
+async function readIndexRaw() {
+  if (config.isWorker) {
+    const kv = getWorkerKv();
+    if (!kv) {
+      throw new Error(
+        'The handbook index is not configured. Add the HANDBOOK_INDEX KV namespace binding to the Worker.'
+      );
+    }
+    const raw = await kv.get(config.indexKvKey, { type: 'text', cacheTtl: 300 });
+    if (typeof raw !== 'string' || raw === '') {
+      throw new Error(
+        `The handbook index is missing from Cloudflare KV (key "${config.indexKvKey}"). Run \`npm run index\` locally, then \`npm run kv:upload\`.`
+      );
+    }
+    return raw;
+  }
+
+  const fs = await import('node:fs/promises');
+  try {
+    return await fs.readFile(config.indexFile, 'utf8');
+  } catch {
+    throw new Error(
+      'The handbook index is missing. Run `npm run index` before starting the server.'
+    );
+  }
+}
 
 export async function loadIndex({ force = false } = {}) {
   if (force) {
@@ -431,14 +462,7 @@ export async function loadIndex({ force = false } = {}) {
   if (cachedIndex) return cachedIndex;
   if (cachedPromise) return cachedPromise;
   cachedPromise = (async () => {
-    let raw;
-    try {
-      raw = await fs.readFile(config.indexFile, 'utf8');
-    } catch {
-      throw new Error(
-        'The handbook index is missing. Run `npm run index` before starting the server.'
-      );
-    }
+    const raw = await readIndexRaw();
     const data = JSON.parse(raw);
     if (!Array.isArray(data.chunks) || data.chunks.length === 0) {
       throw new Error('The handbook index is empty or invalid. Run `npm run index` again.');
@@ -598,8 +622,28 @@ export async function searchHandbook(query, { topK = 5, dense = true } = {}) {
   const warnings = [];
   let denseVectors = null;
   let denseUsed = false;
+
+  // Query embeddings must come from the same provider that built the index.
+  // Local ONNX models are never loaded in the Worker (far too large for the
+  // 128 MB isolate and the free plan's 10 ms CPU budget), so an index built
+  // with local embeddings is searched with BM25 keywords there. Rebuilding the
+  // index with EMBEDDING_PROVIDER=nvidia enables semantic search in the Worker.
+  const denseProvider = index.embedding?.provider || null;
+  const denseAvailableOnThisPlatform = !(config.isWorker && denseProvider !== 'nvidia');
+  if (!denseAvailableOnThisPlatform && !warnedAboutLocalEmbeddings) {
+    warnedAboutLocalEmbeddings = true;
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        message:
+          'The handbook index was built with local embeddings, so the Cloudflare Worker searches with keywords only. Rebuild with EMBEDDING_PROVIDER=nvidia and run `npm run kv:upload` to enable semantic search.',
+      })
+    );
+  }
+
   if (
     dense &&
+    denseAvailableOnThisPlatform &&
     config.features.allowDenseRetrieval &&
     Array.isArray(index.vectors) &&
     index.vectors.length === index.chunks.length

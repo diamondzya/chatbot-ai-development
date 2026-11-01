@@ -107,6 +107,9 @@
     busy: false,
     maxChars: 2000,
     preferExcerpts: false,
+    // The Cloudflare Workers deployment disables image uploads (see README);
+    // /api/meta reports the real capability on every load.
+    imageUploadsEnabled: true,
     animatedIds: new Set(),
   };
 
@@ -811,6 +814,10 @@
     state.demoMode = Boolean(meta && meta.mode && meta.mode.demo);
     state.maxChars = Number(meta?.limits?.maxMessageChars) || 2000;
     els.messageInput.maxLength = state.maxChars;
+    state.imageUploadsEnabled = !(meta?.capabilities && meta.capabilities.imageUploads === false);
+    if (!state.imageUploadsEnabled) {
+      els.attachBtn.title = 'Image uploads are not available on this deployment';
+    }
 
     renderSuggestions(meta?.suggestedQuestions);
 
@@ -1367,6 +1374,7 @@
 
     els.sendBtn.disabled = !canSend;
     els.attachBtn.disabled = state.busy;
+    els.attachBtn.hidden = !state.imageUploadsEnabled;
     els.removeAttachment.disabled = state.busy;
 
     els.sendBtn.classList.toggle('is-busy', state.busy);
@@ -2578,7 +2586,7 @@
     });
 
     els.attachBtn.addEventListener('click', () => {
-      if (!state.busy) els.fileInput.click();
+      if (!state.busy && state.imageUploadsEnabled) els.fileInput.click();
     });
 
     els.fileInput.addEventListener('change', () => {

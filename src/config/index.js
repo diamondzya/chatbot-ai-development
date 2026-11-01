@@ -3,8 +3,35 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
-const rootDir = fileURLToPath(new URL('../../', import.meta.url));
-dotenv.config({ path: path.join(rootDir, '.env'), quiet: true });
+// The Cloudflare Workers runtime identifies itself through navigator.userAgent.
+// WORKER_PLATFORM exists so tests and the KV upload script can force the same
+// code paths without a Workers runtime.
+function detectWorkerPlatform() {
+  const override = String(process.env.WORKER_PLATFORM || '')
+    .trim()
+    .toLowerCase();
+  if (override === '1' || override === 'true') return true;
+  if (override === '0' || override === 'false') return false;
+  return typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+}
+
+export const isWorkerPlatform = detectWorkerPlatform();
+
+let rootDir = '/bundle';
+try {
+  // Under Wrangler this points inside the worker bundle; locally it is the
+  // project root. It is only used to build local filesystem paths, and the
+  // Worker never reads those files.
+  rootDir = fileURLToPath(new URL('../../', import.meta.url));
+} catch {
+  rootDir = process.cwd();
+}
+
+if (!isWorkerPlatform) {
+  // Workers receive configuration through bindings (process.env is populated
+  // automatically), and have no .env file to load.
+  dotenv.config({ path: path.join(rootDir, '.env'), quiet: true });
+}
 
 function intEnv(name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const raw = process.env[name];
@@ -79,6 +106,9 @@ export const config = Object.freeze({
   publicDir: path.join(rootDir, 'public'),
   dataDir: path.join(rootDir, 'data'),
   indexFile: path.join(rootDir, 'data', 'index.json'),
+  // Workers read the generated index from the HANDBOOK_INDEX KV binding under
+  // this key instead of the filesystem.
+  indexKvKey: clean(process.env.HANDBOOK_INDEX_KEY) || 'handbook-index',
   handbookJsonFile: path.join(rootDir, 'data', 'handbook.json'),
   handbookPath: resolveFromRoot(
     clean(process.env.HANDBOOK_PATH) || 'STI High School Student Handbook 2026 (ORCA).pdf'
@@ -87,7 +117,11 @@ export const config = Object.freeze({
     // Source cards deep-link to this URL so students can verify a citation.
     // Serving the PDF makes the whole document downloadable; disable it if the
     // deployment does not have redistribution rights.
-    serve: boolEnv('SERVE_HANDBOOK_PDF', true),
+    //
+    // On Cloudflare Workers the original PDF is deliberately never uploaded or
+    // bundled, so PDF serving is always disabled there (SERVE_HANDBOOK_PDF is
+    // ignored). Excerpts, citations, and printed page references still work.
+    serve: isWorkerPlatform ? false : boolEnv('SERVE_HANDBOOK_PDF', true),
     publicUrl: '/handbook.pdf',
     // Printed page numbers are one less than the PDF page numbers in this
     // handbook, so printed page 39 is PDF page 40.
@@ -151,20 +185,30 @@ export const config = Object.freeze({
   },
   trustProxy: (() => {
     const raw = clean(process.env.TRUST_PROXY).toLowerCase();
-    if (!raw || raw === 'false' || raw === '0') return false;
+    const workerDefault = isWorkerPlatform ? 1 : false;
+    if (!raw) return workerDefault;
+    if (raw === 'false' || raw === '0') return false;
     if (raw === 'true') return true;
     const hops = Number.parseInt(raw, 10);
-    return Number.isFinite(hops) && hops >= 0 ? hops : false;
+    return Number.isFinite(hops) && hops >= 0 ? hops : workerDefault;
   })(),
+  isWorker: isWorkerPlatform,
   features: {
     // The demo is never presented as AI. It only quotes retrieved handbook text.
     demoMode: !(apiKeyLooksReal && baseUrl && model),
     allowDenseRetrieval: boolEnv('ENABLE_DENSE_RETRIEVAL', true),
+    // Image uploads depend on an in-memory store with a cleanup timer, which is
+    // not reliable on Cloudflare Workers (isolates start, stop, and run in
+    // parallel). They are disabled there; the upload route answers with a clear
+    // message. A future R2-backed store can re-enable them with
+    // ENABLE_IMAGE_UPLOADS=true.
+    imageUploads: isWorkerPlatform ? boolEnv('ENABLE_IMAGE_UPLOADS', false) : true,
   },
 });
 
 export function publicHealthConfig() {
   return {
+    platform: config.isWorker ? 'cloudflare-workers' : 'node',
     provider: config.ai.provider,
     baseUrlHost: (() => {
       try {
@@ -189,6 +233,7 @@ export function publicHealthConfig() {
       config.embeddings.provider === 'local'
         ? config.embeddings.localModel
         : config.embeddings.nvidiaModel,
+    imageUploads: config.features.imageUploads,
     limits: {
       maxImageMb: config.limits.maxImageMb,
       maxMessageChars: config.limits.maxMessageChars,
@@ -199,5 +244,8 @@ export function publicHealthConfig() {
 }
 
 export function ensureDataDir() {
+  // Only used by local build scripts and the local server; Workers have no
+  // writable project directory.
+  if (isWorkerPlatform) return;
   fs.mkdirSync(config.dataDir, { recursive: true });
 }

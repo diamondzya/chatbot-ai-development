@@ -1,6 +1,10 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config/index.js';
+
+// The module name is kept in a variable so the bundler does not try to bundle
+// the ONNX runtime (@huggingface/transformers) into the Cloudflare Worker. The
+// import is only ever executed by the local Node server and build scripts.
+const LOCAL_TRANSFORMERS_MODULE = '@huggingface/transformers';
 
 let localExtractorPromise = null;
 let localExtractorModel = null;
@@ -13,10 +17,19 @@ function normalise(vector) {
 }
 
 async function getLocalExtractor(model) {
+  if (config.isWorker) {
+    // Local embeddings need the ONNX runtime, a model download, and far more
+    // memory and CPU than the free plan allows. Query embeddings in the Worker
+    // must come from a provider API (EMBEDDING_PROVIDER=nvidia).
+    throw new Error(
+      'Local embedding models are not available in the Cloudflare Worker. Rebuild the index with EMBEDDING_PROVIDER=nvidia to enable semantic search.'
+    );
+  }
   if (localExtractorPromise && localExtractorModel === model) return localExtractorPromise;
   localExtractorModel = model;
   localExtractorPromise = (async () => {
-    const { pipeline, env } = await import('@huggingface/transformers');
+    const fs = await import('node:fs/promises');
+    const { pipeline, env } = await import(LOCAL_TRANSFORMERS_MODULE);
     await fs.mkdir(path.join(config.dataDir, 'models'), { recursive: true });
     env.cacheDir = path.join(config.dataDir, 'models');
     env.allowRemoteModels = true;

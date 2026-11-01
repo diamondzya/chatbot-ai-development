@@ -14,6 +14,7 @@ An unofficial, handbook-grounded student assistant for **STI High School**. It a
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Quick start (local demo mode)](#quick-start-local-demo-mode)
+- [Cloudflare Workers (free plan)](#cloudflare-workers-free-plan)
 - [Enable AI answers (NVIDIA NIM)](#enable-ai-answers-nvidia-nim)
 - [Handbook indexing](#handbook-indexing)
 - [Configuration](#configuration)
@@ -94,7 +95,7 @@ Demo mode is fully functional for retrieval and citations. It is intentionally n
 | Backend hardening: Helmet CSP, same-origin write guard, 3 rate limiters, request IDs, secret-free errors | Verified; no stack traces in production |
 | Frontend: responsive layout, source cards, markdown with escaping, copy/retry, a11y | Verified in the browser |
 | Frontend extras: handbook-only mode, follow-up chips, inline citation links, highlighted excerpts, theme menu (light/dark/system), Ctrl+K quick actions, sidebar TOC, dictation, feedback, print styles, PWA shell | Verified in the browser and by headless-browser tests |
-| Automated tests | 87 tests (unit + retrieval golden set + headless browser) + 21 end-to-end scenarios |
+| Automated tests | 98 tests (unit + worker-mode + retrieval golden set + headless browser) + 21 end-to-end scenarios |
 
 **Requires future setup:**
 
@@ -200,8 +201,99 @@ Useful commands:
 npm run dev          # restart on file changes
 npm run check        # validate env, PDF, and index without starting the server
 npm run index        # rebuild data/index.json and data/handbook.json
-npm test             # run all 70 tests
+npm test             # run all 98 tests
 ```
+
+---
+
+## Cloudflare Workers (free plan)
+
+The same Express application also runs on **Cloudflare Workers with Static
+Assets** — no containers, no paid plan, no Docker. The local Node workflow
+(`npm start`) is unchanged and remains the recommended development setup.
+
+| Piece | Local Node server | Cloudflare Workers |
+|---|---|---|
+| HTTP layer | `src/server.js` (`app.listen`) | `worker/index.js` using `httpServerHandler` from `cloudflare:node` |
+| Frontend | `express.static(public/)` | Workers Static Assets (`ASSETS` binding, `run_worker_first: ["/api/*"]`) |
+| Handbook index | `data/index.json` on disk | `HANDBOOK_INDEX` KV namespace, cached per isolate |
+| Query embeddings | local ONNX or NVIDIA | NVIDIA provider API only |
+| Image uploads | in-memory store with TTL | disabled with a clear message (R2 can lift this later) |
+| Handbook PDF | `/handbook.pdf` when enabled | never uploaded, always disabled |
+
+### One-time setup
+
+```powershell
+npm install
+npm run index                                  # local build; needs the PDF
+
+npx wrangler login                             # or set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
+npx wrangler kv namespace create HANDBOOK_INDEX
+# → copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
+
+npx wrangler secret put AI_API_KEY             # NVIDIA key (chat + vision)
+npx wrangler secret put EMBEDDING_API_KEY      # optional; falls back to AI_API_KEY
+
+npm run kv:upload                              # upload data/index.json to KV
+npx wrangler deploy
+```
+
+For semantic search in the Worker, build the index with provider embeddings
+first (the Worker never loads local ONNX models):
+
+```powershell
+$env:EMBEDDING_PROVIDER="nvidia"; npm run index; npm run kv:upload
+```
+
+### Local Worker development
+
+```powershell
+npm run kv:upload:local   # write the index into the local KV store
+npm run dev:worker        # wrangler dev on http://localhost:8787
+```
+
+`.dev.vars` (gitignored) holds local secrets such as `AI_API_KEY`.
+
+### Bindings and secrets
+
+| Name | Type | Purpose |
+|---|---|---|
+| `ASSETS` | Static assets binding | serves `public/` |
+| `HANDBOOK_INDEX` | KV namespace | the generated handbook index (key `handbook-index`) |
+| `AI_API_KEY` | secret | NVIDIA NIM chat + vision key |
+| `EMBEDDING_API_KEY` | secret, optional | falls back to `AI_API_KEY` |
+| `EMBEDDING_PROVIDER` | var (`nvidia`) | selects provider query embeddings |
+| `NODE_ENV`, `LOG_LEVEL` | vars | production logging |
+
+The index is never exposed as a public file: only `public/` is uploaded as
+assets, and `data/` is never part of the asset directory.
+
+### What differs on the first Worker deployment
+
+- **Image uploads are disabled** (`501 image_uploads_unavailable`) with a
+  student-friendly message, and the attach button is hidden via
+  `/api/meta → capabilities.imageUploads`. The in-memory attachment store and
+  its cleanup timer cannot be trusted across isolates. **Adding R2 later:**
+  create a bucket (`npx wrangler r2 bucket create sti-attachments`), add an
+  `r2_buckets` binding, treat objects as temporary (store a TTL in metadata and
+  add a bucket lifecycle rule to expire objects), keep the existing
+  magic-byte/image-size validation, then set `ENABLE_IMAGE_UPLOADS=true`.
+- **The handbook PDF is not served**, so source cards do not deep-link into it.
+  Citations, excerpts, and printed page references (`p. 39`) still work.
+- **Local ONNX embeddings never load.** With a local-embedding index the
+  Worker searches with BM25 keywords only and logs one operator warning per
+  isolate; rebuild the index with `EMBEDDING_PROVIDER=nvidia` to enable dense
+  retrieval. A dimension mismatch would fall back safely, but the index is
+  skipped before any embedding call is attempted.
+- **Rate limits and feedback counters are per isolate** (in-memory). They work,
+  but parallel isolates do not share counters; add Cloudflare's own rate
+  limiting rules for hard guarantees.
+- **CPU budget:** the free plan allows 10 ms CPU per request (network waits —
+  NVIDIA calls, KV reads — do not count). The index is parsed once per isolate
+  and cached, so only the first request in a fresh isolate does the heavier
+  work. Compression is left to the edge in the Worker.
+- **Static assets keep their security headers** through `public/_headers`
+  (kept in sync with the Helmet configuration that protects API responses).
 
 ---
 
@@ -672,6 +764,7 @@ The assistant never provides instructions for weapons, violence, self-harm, chea
 - Run under a process manager (systemd, PM2, or similar) and restrict access to the port. A sample unit is provided at `deploy/sti-assist.service`.
 - **Containers:** a `Dockerfile` is included. Build the index first (`npm ci && npm run index`), then `docker build -t sti-assist .` and run with `--env-file .env -p 3000:3000`. The image expects `data/index.json` and, for local embeddings, `data/models/` in the build context.
 - The app has no user accounts or authorization layer. If you deploy it publicly, add institution-appropriate access controls, monitoring, and a privacy review. Do not expose student data or confidential handbook files.
+- **Cloudflare Workers:** see [Cloudflare Workers (free plan)](#cloudflare-workers-free-plan) for the serverless deployment path (Static Assets + KV, no containers, no paid plan).
 - **Run a single server instance** unless you add shared infrastructure. Temporary images, rate-limit counters, and in-memory state are per process, so multiple instances would not share uploads or limits. Use a shared store and object storage before scaling horizontally.
 - Rebuild the index during deployment if it is not shipped or if the handbook/model changed. The PDF itself is gitignored.
 
@@ -683,7 +776,7 @@ The assistant never provides instructions for weapons, violence, self-harm, chea
 npm test
 ```
 
-The suite uses Node's built-in test runner and `supertest`; it currently contains **87 tests**, including a retrieval evaluation over a golden question set and headless-browser checks of the client:
+The suite uses Node's built-in test runner and `supertest`; it currently contains **98 tests**, including a retrieval evaluation over a golden question set, headless-browser checks of the client, and Worker-mode tests that run the same Express app with a synthetic index in a fake KV binding:
 
 - Safety and scope classification, including threats, self-harm, weapon concealment, rule evasion, prompt injection, false claims, and out-of-scope redirects.
 - Index metadata, page mapping, retrieval ranking for ID, uniforms, slippers, tardiness, gadgets, lost items, discipline, weapons, and cheating.
@@ -785,6 +878,7 @@ STI Chatbot/
 │   ├── css/style.css           # responsive design, dark theme, print styles, reduced motion
 │   ├── js/app.js               # client state, uploads, markdown, citations, palette, feedback
 │   ├── js/theme.js             # pre-paint theme bootstrap (avoids a light flash)
+│   ├── _headers                # security headers for Workers Static Assets
 │   ├── sw.js                   # service worker: offline shell, never caches API/PDF
 │   ├── manifest.webmanifest    # PWA manifest
 │   └── favicon.svg
@@ -806,16 +900,20 @@ STI Chatbot/
 │   │   ├── promptBuilder.js    # grounded system/user prompts, history, vision
 │   │   └── safetyFilter.js     # scope, safety, injection, false-claim rules
 │   └── errors.js
+├── worker/
+│   └── index.js                # Cloudflare Workers entry (Express via httpServerHandler)
 ├── scripts/
 │   ├── check-config.js         # npm run check
 │   ├── eval-retrieval.js       # npm run eval (golden-set scoreboard)
 │   ├── index-handbook.js       # npm run index
+│   ├── upload-index-kv.js      # npm run kv:upload (index -> HANDBOOK_INDEX KV)
 │   ├── debug-safety.js
 │   ├── debug-search.js
 │   └── smoke-live.js           # end-to-end checks against a running server
 ├── tests/                      # 87 tests incl. retrieval eval + headless browser
 ├── deploy/sti-assist.service   # systemd unit sample
 ├── Dockerfile                  # container image (index must be built first)
+├── wrangler.jsonc              # Workers config: static assets, KV binding, /api/* worker-first
 ├── .github/workflows/ci.yml    # Node 20/22/24 matrix
 ├── data/
 │   ├── index.json              # generated retrieval index (gitignored)
@@ -843,7 +941,8 @@ Verified locally in this workspace:
 - About/privacy modal, source expansion, copy/retry controls, and status badges.
 - SSE streaming end to end against a mock OpenAI-compatible provider: `sources` arrives before the first `delta`, the final `done` event carries the verified answer, and client disconnects abort the provider request. Live-provider streaming uses the same path.
 - Citation deep links: printed page 39 maps to `/handbook.pdf#page=40`; the PDF route serves the indexed document with `noindex` and private caching.
-- **87 automated tests passing**, including the golden-set retrieval evaluation (hit@3 and page-accuracy thresholds) and six headless-browser checks of the client (streamed answer, citations, theme persistence, quick actions).
+- **98 automated tests passing**, including the golden-set retrieval evaluation (hit@3 and page-accuracy thresholds), six headless-browser checks of the client (streamed answer, citations, theme persistence, quick actions), and eleven Worker-mode tests (KV index loading and isolate caching, Taglish retrieval, capabilities/meta, SSE, safety filter, missing-KV behavior, and wrangler.jsonc wiring).
+- **Worker deployment verified locally with `wrangler dev` on 2026-11-01**: static assets with `_headers` security headers, `/api/health` and `/api/meta` in AI mode, a real NVIDIA answer citing the ID Card p. 39, Taglish retrieval and answer, SSE streaming (sources first at ~0.2 s, 87 delta events, one `done`, zero errors) for the gadget rule p. 43, image uploads returning the explicit 501 message, and `/handbook.pdf` returning 404. Not yet verified: an actual `wrangler deploy` to a live account.
 - `npm run check` reporting a valid configuration.
 - **Live vision verified on 2026-10-31**: upload → analysis → grounded answer with `nvidia/nemotron-3.5-super-vl-120b-a12b` (`analyzed: true`, accurate description, supplementary-context framing kept).
 - **Live “handbook only” verified**: `preferExcerpts: true` returns `mode: "excerpts"` with the honest label and **no model call** (`usage` absent).

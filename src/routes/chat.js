@@ -1,6 +1,5 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import multer from 'multer';
 import { config } from '../config/index.js';
 import { HttpError } from '../errors.js';
 import { ProviderError } from '../services/aiProvider.js';
@@ -10,15 +9,19 @@ import { recordFeedback, validateFeedback } from '../services/feedback.js';
 
 const router = express.Router();
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: config.limits.maxImageBytes,
-    files: 1,
-    fields: 4,
-    parts: 6,
-  },
-});
+// multer is imported lazily: the module is only loaded when image uploads are
+// actually enabled. On Cloudflare Workers uploads are disabled by default
+// (in-memory storage is not reliable there), so multer is never executed.
+let multerPromise = null;
+function loadMulter() {
+  // multer is CommonJS: unwrap the module namespace so the returned value is
+  // the callable multer export (with .memoryStorage and .MulterError).
+  if (!multerPromise) multerPromise = import('multer').then((mod) => mod.default || mod);
+  return multerPromise;
+}
+
+const IMAGE_UPLOADS_DISABLED_MESSAGE =
+  'Image uploads are not available on this deployment. Please type your question instead — handbook answers do not need the image.';
 
 function limiter({ windowMs, limit, message }) {
   return rateLimit({
@@ -65,7 +68,22 @@ function ownerKeyFor(req) {
   return clientId ? `${clientId}|${req.ip}` : `ip|${req.ip}`;
 }
 
-function receiveImage(req, res, next) {
+async function receiveImage(req, res, next) {
+  let multer;
+  try {
+    multer = await loadMulter();
+  } catch {
+    return next(new HttpError(503, 'image_uploads_unavailable', IMAGE_UPLOADS_DISABLED_MESSAGE));
+  }
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: config.limits.maxImageBytes,
+      files: 1,
+      fields: 4,
+      parts: 6,
+    },
+  });
   upload.single('image')(req, res, (error) => {
     if (!error) return next();
     if (error instanceof multer.MulterError) {
@@ -269,17 +287,38 @@ router.post('/feedback', apiLimiter, (req, res) => {
   res.status(202).json({ recorded: true });
 });
 
-router.post('/attachments', uploadLimiter, receiveImage, async (req, res) => {
-  if (!req.file) {
-    throw new HttpError(400, 'missing_image', 'Choose an image to upload in the "image" field.');
+router.post(
+  '/attachments',
+  uploadLimiter,
+  (req, res, next) => {
+    // Cloudflare Workers: the in-memory attachment store (with its TTL timer
+    // and per-isolate lifetime) cannot be relied on, so uploads are disabled
+    // with an explicit message. Local development keeps full upload support.
+    if (!config.features.imageUploads) {
+      // Answered directly (like the rate limiter) so a deliberate refusal is
+      // not logged as a server error.
+      return res.status(501).json({
+        error: {
+          code: 'image_uploads_unavailable',
+          message: IMAGE_UPLOADS_DISABLED_MESSAGE,
+          requestId: req.id,
+        },
+      });
+    }
+    return receiveImage(req, res, next);
+  },
+  async (req, res) => {
+    if (!req.file) {
+      throw new HttpError(400, 'missing_image', 'Choose an image to upload in the "image" field.');
+    }
+    const attachment = await validateAndStoreImage({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      ownerKey: ownerKeyFor(req),
+    });
+    res.status(201).json({ attachment });
   }
-  const attachment = validateAndStoreImage({
-    buffer: req.file.buffer,
-    originalName: req.file.originalname,
-    ownerKey: ownerKeyFor(req),
-  });
-  res.status(201).json({ attachment });
-});
+);
 
 router.delete('/attachments/:id', apiLimiter, (req, res) => {
   const deleted = deleteAttachment(req.params.id, ownerKeyFor(req));
