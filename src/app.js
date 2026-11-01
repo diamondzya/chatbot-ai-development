@@ -15,6 +15,19 @@ import { getIndexMeta, getTableOfContents } from './services/handbookSearch.js';
 const DISCLAIMER =
   'STI Assist AI is an unofficial prototype. It is not affiliated with or endorsed by STI. Answers are generated from the STI High School Student Handbook (July 2026) and may contain errors. Always confirm important policies with your school office.';
 
+// process.uptime() may not be available on every runtime (the Workers
+// implementation only exposes a subset of the Node process API).
+const processStartedAt = Date.now();
+
+function uptimeSeconds() {
+  try {
+    if (typeof process.uptime === 'function') return Math.round(process.uptime());
+  } catch {
+    // Fall through to the wall-clock fallback below.
+  }
+  return Math.round((Date.now() - processStartedAt) / 1000);
+}
+
 const START_HERE = [
   'What should I do if I forget my school ID?',
   'What are the rules about being late to class?',
@@ -32,6 +45,19 @@ async function indexFreshness() {
     meta = await getIndexMeta();
   } catch {
     return { ready: false };
+  }
+  if (config.isWorker) {
+    // The Worker has no local PDF to compare against: the index was built and
+    // uploaded from a verified local run, so staleness cannot be detected here.
+    return {
+      ready: true,
+      chunks: meta.chunks,
+      sections: meta.sections,
+      generatedAt: meta.generatedAt,
+      pages: meta.indexedPrintedPages,
+      handbookModifiedAt: null,
+      stale: null,
+    };
   }
   let stat = null;
   try {
@@ -97,6 +123,19 @@ export function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
 
+  if (config.isWorker) {
+    // The Workers node:http implementation exposes no usable socket address,
+    // so derive the client IP from the header Cloudflare sets on every request.
+    // Rate limiting and attachment ownership key on req.ip.
+    app.use((req, _res, next) => {
+      const clientIp = req.get('cf-connecting-ip');
+      if (clientIp) {
+        Object.defineProperty(req, 'ip', { value: clientIp, configurable: true });
+      }
+      next();
+    });
+  }
+
   app.use((req, res, next) => {
     req.id = randomUUID();
     res.set('X-Request-Id', req.id);
@@ -128,13 +167,18 @@ export function createApp() {
     })
   );
 
-  app.use(
-    compression({
-      // SSE responses set "Cache-Control: no-transform", so compression skips
-      // them and the token stream stays unbuffered.
-      threshold: 1024,
-    })
-  );
+  if (!config.isWorker) {
+    // Cloudflare compresses responses at the edge, and zlib work is wasted
+    // against the free plan's 10 ms CPU budget, so compression runs only on
+    // the local Node server.
+    app.use(
+      compression({
+        // SSE responses set "Cache-Control: no-transform", so compression skips
+        // them and the token stream stays unbuffered.
+        threshold: 1024,
+      })
+    );
+  }
 
   app.use((_req, res, next) => {
     // Voice input needs the microphone on this origin; everything else is off.
@@ -155,18 +199,22 @@ export function createApp() {
   app.use(requestLogger);
   app.use(express.json({ limit: config.limits.maxJsonBody, strict: true }));
 
-  app.use(
-    express.static(config.publicDir, {
-      index: 'index.html',
-      etag: true,
-      maxAge: config.isProduction ? '1h' : 0,
-      setHeaders(res, filePath) {
-        if (path.basename(filePath) === 'index.html') {
-          res.setHeader('Cache-Control', 'no-cache');
-        }
-      },
-    })
-  );
+  if (!config.isWorker) {
+    // On Cloudflare Workers the frontend is served by Workers Static Assets
+    // (the ASSETS binding), so Express never touches the filesystem there.
+    app.use(
+      express.static(config.publicDir, {
+        index: 'index.html',
+        etag: true,
+        maxAge: config.isProduction ? '1h' : 0,
+        setHeaders(res, filePath) {
+          if (path.basename(filePath) === 'index.html') {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
+        },
+      })
+    );
+  }
 
   if (config.handbookPdf.serve) {
     // Serves the indexed handbook so source cards can deep-link to a cited
@@ -210,7 +258,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       version: config.appVersion,
-      uptimeSeconds: Math.round(process.uptime()),
+      uptimeSeconds: uptimeSeconds(),
       mode: config.features.demoMode ? 'demo' : 'ai',
       index,
       attachments: getAttachmentStats(),
@@ -259,6 +307,16 @@ export function createApp() {
       },
       provider: publicHealthConfig(),
       handbook,
+      // Platform capabilities the frontend can rely on. Image uploads are
+      // disabled on the Cloudflare Workers deployment (see README).
+      capabilities: {
+        platform: config.isWorker ? 'cloudflare-workers' : 'node',
+        imageUploads: config.features.imageUploads,
+        imageUploadsMessage: config.features.imageUploads
+          ? null
+          : 'Image uploads are not available on this deployment. Please type your question instead.',
+        handbookPdf: config.handbookPdf.serve,
+      },
       startHere: START_HERE,
       suggestedQuestions: SUGGESTED_QUESTIONS,
       limits: {
@@ -283,11 +341,15 @@ export function createApp() {
     next(new HttpError(404, 'not_found', 'That API endpoint does not exist.'));
   });
 
-  app.use((req, res, next) => {
-    if (req.method !== 'GET' || !req.accepts('html')) return next();
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.sendFile(path.join(config.publicDir, 'index.html'));
-  });
+  if (!config.isWorker) {
+    // SPA fallback for the local server. In the Worker, the entry point defers
+    // non-API requests to the ASSETS binding instead.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || !req.accepts('html')) return next();
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(path.join(config.publicDir, 'index.html'));
+    });
+  }
 
   app.use((_req, _res, next) => {
     next(new HttpError(404, 'not_found', 'The page you requested was not found.'));

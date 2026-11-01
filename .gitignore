@@ -16,6 +16,11 @@ data/*.tmp
 STI High School Student Handbook 2026 (ORCA).pdf
 *.pdf
 
+# cloudflare workers local state and dev secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+
 # logs and editor files
 *.log
 npm-debug.log*
