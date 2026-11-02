@@ -95,7 +95,8 @@ Demo mode is fully functional for retrieval and citations. It is intentionally n
 | Backend hardening: Helmet CSP, same-origin write guard, 3 rate limiters, request IDs, secret-free errors | Verified; no stack traces in production |
 | Frontend: responsive layout, source cards, markdown with escaping, copy/retry, a11y | Verified in the browser |
 | Frontend extras: handbook-only mode, follow-up chips, inline citation links, highlighted excerpts, theme menu (light/dark/system), Ctrl+K quick actions, sidebar TOC, dictation, feedback, print styles, PWA shell | Verified in the browser and by headless-browser tests |
-| Automated tests | 98 tests (unit + worker-mode + retrieval golden set + headless browser) + 21 end-to-end scenarios |
+| Unanswered-question log ("coverage gaps") | Questions ending in the fallback are recorded without client identifiers (`data/gaps.jsonl` locally, `gap:` KV keys on the Worker) and listed with `npm run gaps` |
+| Automated tests | 103 tests (unit + worker-mode + retrieval golden set + gap log + headless browser) + 21 end-to-end scenarios |
 
 **Requires future setup:**
 
@@ -201,7 +202,8 @@ Useful commands:
 npm run dev          # restart on file changes
 npm run check        # validate env, PDF, and index without starting the server
 npm run index        # rebuild data/index.json and data/handbook.json
-npm test             # run all 98 tests
+npm test             # run all 103 tests
+npm run gaps         # list unanswered questions logged for handbook gaps
 ```
 
 ---
@@ -254,6 +256,17 @@ npm run dev:worker        # wrangler dev on http://localhost:8787
 
 `.dev.vars` (gitignored) holds local secrets such as `AI_API_KEY`.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs the handbook-free unit subset (`npm run
+test:ci`, 60 tests) on every push and pull request across Node 20, 22, and 24,
+and deploys the Worker on `main` once the repository secrets
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. The full local
+suite (`npm test`) still covers retrieval, API, browser, and gap-log behavior
+against the confidential handbook index, which CI does not have; refresh the
+deployed KV index from a machine with the PDF (`npm run kv:upload`) whenever
+the handbook or indexer changes.
+
 ### Bindings and secrets
 
 | Name | Type | Purpose |
@@ -288,6 +301,9 @@ assets, and `data/` is never part of the asset directory.
 - **Rate limits and feedback counters are per isolate** (in-memory). They work,
   but parallel isolates do not share counters; add Cloudflare's own rate
   limiting rules for hard guarantees.
+- **Unanswered questions are logged to the same `HANDBOOK_INDEX` KV namespace**
+  under `gap:` keys with a 90-day TTL, and read with
+  `npm run gaps -- --remote`. Set `LOG_UNANSWERED_QUESTIONS=false` to disable.
 - **CPU budget:** the free plan allows 10 ms CPU per request (network waits —
   NVIDIA calls, KV reads — do not count). The index is parsed once per isolate
   and cached, so only the first request in a fresh isolate does the heavier
@@ -312,7 +328,7 @@ POST https://integrate.api.nvidia.com/v1/chat/completions
 AI_PROVIDER=nvidia
 AI_API_KEY=nvapi-your-real-key
 AI_BASE_URL=https://integrate.api.nvidia.com/v1
-AI_MODEL=nvidia/nemotron-3.5-bolt-e4b
+AI_MODEL=deepseek-ai/deepseek-v4.1-flash
 AI_VISION_MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b
 ```
 
@@ -322,16 +338,24 @@ the account) during verification, while the Nemotron VL model answered image
 requests correctly. See [Vision behavior](#vision-behavior).
 
 **Choose `AI_MODEL` carefully — not every model suits this app.** Measured
-against `integrate.api.nvidia.com` on 2026-10-28 with a realistic grounded
-handbook prompt:
+against `integrate.api.nvidia.com` with a realistic grounded handbook prompt
+(the DeepSeek row was re-measured on 2026-11-01; it was 82s on 2026-10-28, so
+endpoint load matters):
 
 | Model | Latency | Hidden reasoning tokens | Answer |
 |---|---|---|---|
+| `deepseek-ai/deepseek-v4.1-flash` **(default)** | 10s (first visible token ~7.4s) | 86 | complete |
 | `nvidia/nemotron-3.5-bolt-e4b` | 1.1s | 0 | complete |
 | `meta/llama-3.2-11b-vision-instruct` | 2.5s | 0 | complete |
 | `nvidia/nemotron-3.5-lightning-30b-a3b` | 7.4s | 593 | **truncated** |
 | `nvidia/nemotron-3-ultra-550b-a55b` | 49s | 0 | complete |
 | `openai/gpt-oss-20b` | 175s | 0 | **truncated** |
+
+The current default is `deepseek-ai/deepseek-v4.1-flash` (best answer quality
+of the account-verified options; it reasons silently for a few seconds before
+the visible stream starts). Set `AI_MODEL=nvidia/nemotron-3.5-bolt-e4b` for the
+fastest first token. If DeepSeek occasionally takes longer under load, raise
+`AI_TIMEOUT_MS` above its 45-second default.
 
 A **reasoning model** bills its hidden chain-of-thought against
 `AI_MAX_OUTPUT_TOKENS`, so the visible answer gets whatever is left — with a
@@ -452,7 +476,7 @@ This skips embeddings and writes a BM25-only index. Retrieval then uses keyword 
 | Provider | Setting | Notes |
 |---|---|---|
 | Local (default) | `EMBEDDING_PROVIDER=local` | Offline after first download. Multilingual, 384 dimensions. Recommended. |
-| NVIDIA NIM | `EMBEDDING_PROVIDER=nvidia` | Uses `nvidia/llama-3.2-nv-embedqa-1b-v2` by default and `input_type=query/passage`. Requires an embedding key and network access. |
+| NVIDIA NIM | `EMBEDDING_PROVIDER=nvidia` | Uses `nvidia/nemotron-3.5-embed-1b` by default and `input_type=query/passage`. Requires an embedding key and network access. |
 
 `EMBEDDING_API_KEY` falls back to `AI_API_KEY`. If you switch providers or models, rebuild the index so stored vectors and query vectors come from the same model.
 
@@ -485,7 +509,7 @@ Copy `.env.example` to `.env`. Never commit `.env`.
 | `AI_PROVIDER` | `nvidia` | `nvidia` or `openai-compatible`. |
 | `AI_API_KEY` | empty | Real key enables AI mode. A blank or `replace...` placeholder forces demo mode. |
 | `AI_BASE_URL` | `https://integrate.api.nvidia.com/v1` | HTTPS required except for localhost. |
-| `AI_MODEL` | `meta/llama-3.3-70b-instruct` | Chat model ID. |
+| `AI_MODEL` | `deepseek-ai/deepseek-v4.1-flash` | Chat model ID. |
 | `AI_VISION_MODEL` | `nvidia/nemotron-3.5-super-vl-120b-a12b` | Image model ID. Must be deployed for your provider account. |
 | `AI_VISION_MAX_OUTPUT_TOKENS` | `1600` | 128–4096. Reasoning-style VL models need headroom before their visible answer. |
 | `AI_TIMEOUT_MS` | `45000` | Per-request timeout, 5–120 seconds. |
@@ -498,7 +522,7 @@ Copy `.env.example` to `.env`. Never commit `.env`.
 |---|---|---|
 | `EMBEDDING_PROVIDER` | `local` | `local` or `nvidia`. |
 | `LOCAL_EMBEDDING_MODEL` | `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | Downloaded to `data/models`. |
-| `NVIDIA_EMBEDDING_MODEL` | `nvidia/llama-3.2-nv-embedqa-1b-v2` | Used when provider is `nvidia`. |
+| `NVIDIA_EMBEDDING_MODEL` | `nvidia/nemotron-3.5-embed-1b` | Used when provider is `nvidia`. |
 | `EMBEDDING_API_KEY` | falls back to `AI_API_KEY` | Optional separate key. |
 | `EMBEDDING_BASE_URL` | `https://integrate.api.nvidia.com/v1` | HTTPS except localhost. |
 | `EMBEDDING_TIMEOUT_MS` | `30000` | 5–120 seconds. |
@@ -516,6 +540,8 @@ Copy `.env.example` to `.env`. Never commit `.env`.
 | `RATE_LIMIT_API_PER_MINUTE` | `120` | General API limit per IP. |
 | `RATE_LIMIT_CHAT_PER_MINUTE` | `30` | Chat requests per IP. |
 | `RATE_LIMIT_UPLOADS_PER_10_MINUTES` | `12` | Image uploads per IP. |
+| `LOG_UNANSWERED_QUESTIONS` | `true` | Anonymous log of questions that end in the "couldn't find a clear answer" fallback (no client identifiers; emails and long numbers redacted). Node writes `data/gaps.jsonl`; the Worker writes to KV with a TTL. |
+| `GAP_LOG_TTL_DAYS` | `90` | 1–365. KV expiry for logged gap entries. |
 
 Additional built-in limits:
 
@@ -941,8 +967,9 @@ Verified locally in this workspace:
 - About/privacy modal, source expansion, copy/retry controls, and status badges.
 - SSE streaming end to end against a mock OpenAI-compatible provider: `sources` arrives before the first `delta`, the final `done` event carries the verified answer, and client disconnects abort the provider request. Live-provider streaming uses the same path.
 - Citation deep links: printed page 39 maps to `/handbook.pdf#page=40`; the PDF route serves the indexed document with `noindex` and private caching.
-- **98 automated tests passing**, including the golden-set retrieval evaluation (hit@3 and page-accuracy thresholds), six headless-browser checks of the client (streamed answer, citations, theme persistence, quick actions), and eleven Worker-mode tests (KV index loading and isolate caching, Taglish retrieval, capabilities/meta, SSE, safety filter, missing-KV behavior, and wrangler.jsonc wiring).
-- **Worker deployment verified locally with `wrangler dev` on 2026-11-01**: static assets with `_headers` security headers, `/api/health` and `/api/meta` in AI mode, a real NVIDIA answer citing the ID Card p. 39, Taglish retrieval and answer, SSE streaming (sources first at ~0.2 s, 87 delta events, one `done`, zero errors) for the gadget rule p. 43, image uploads returning the explicit 501 message, and `/handbook.pdf` returning 404. Not yet verified: an actual `wrangler deploy` to a live account.
+- **103 automated tests passing**, including the golden-set retrieval evaluation (24 cases with hit@3 and page-accuracy thresholds, now covering the appendix content), five gap-log checks (fallback detection, redaction and truncation, KV writes with TTL, local JSONL writes, and an end-to-end demo fallback through `handleChat`), six headless-browser checks of the client (streamed answer, citations, theme persistence, quick actions), and eleven Worker-mode tests (KV index loading and isolate caching, Taglish retrieval, capabilities/meta, SSE, safety filter, missing-KV behavior, and wrangler.jsonc wiring).
+- **Worker runtime verified locally with `wrangler dev` on 2026-11-01**: static assets with `_headers` security headers, `/api/health` and `/api/meta` in AI mode, a real NVIDIA answer citing the ID Card p. 39, Taglish retrieval and answer, SSE streaming (sources first at ~0.2 s, 87 delta events, one `done`, zero errors) for the gadget rule p. 43, image uploads returning the explicit 501 message, and `/handbook.pdf` returning 404.
+- **Live `wrangler deploy` verified on 2026-11-01** (workers.dev, free plan): KV index loaded (171 chunks, pp. 9–61), AI answers with correct citations (ID p. 39, tardiness p. 37, gadgets p. 43), Taglish SSE stream (first event ~0.6 s, 156 deltas, zero errors), `capabilities` reporting `cloudflare-workers` with uploads/PDF off, `/handbook.pdf` 404, `501 image_uploads_unavailable`. Cold-start CPU measured at ~87 ms, above the free plan's 10 ms window but tolerated as documented; one transient 502 occurred immediately after the first deploy and did not reproduce in five follow-up requests or any later checks.
 - `npm run check` reporting a valid configuration.
 - **Live vision verified on 2026-10-31**: upload → analysis → grounded answer with `nvidia/nemotron-3.5-super-vl-120b-a12b` (`analyzed: true`, accurate description, supplementary-context framing kept).
 - **Live “handbook only” verified**: `preferExcerpts: true` returns `mode: "excerpts"` with the honest label and **no model call** (`usage` absent).
@@ -951,6 +978,11 @@ Verified locally in this workspace:
 - `npm run smoke`: all 21 end-to-end scenarios passing against the live server — **in demo mode and in live AI mode** (`nvidia/nemotron-3.5-bolt-e4b`) — correct sections and printed pages for ID (p. 39), uniform (p. 40), tardiness (p. 37), gadgets (p. 43), lost items, discipline, and violence against a person; correct refusal categories for concealment, violence, threats, self-harm, prompt injection, and out-of-scope questions; no fabricated page citations; a non-image file rejected on content sniffing.
 - **Live AI answer quality**, checked by reading real replies: *“Can I bring a gun inside the campus?”* answers from Major Offenses – Category D (p. 57) and the weapons section (p. 47) with correct citations plus a calm safety note, and does not refuse a legitimate policy question. *“How do I apply for a dormitory room at STI?”* returns the required “I couldn't find a clear answer … confirm with the appropriate school office” fallback instead of inventing a policy.
 - Model selection verified against the live provider: the previous default (`meta/llama-3.3-70b-instruct`) is **retired (HTTP 410)**, and reasoning models such as `nvidia/nemotron-3.5-lightning-30b-a3b` starve the visible answer with hidden reasoning tokens. The default is now `nvidia/nemotron-3.5-bolt-e4b`.
+- **Chat model switched to DeepSeek via NVIDIA (2026-11-01)**: `deepseek-ai/deepseek-v4.1-flash` replaces `nvidia/nemotron-3.5-bolt-e4b` as the default (the account's only other DeepSeek model is a 6.7B coder, unsuitable for policy Q&A). Live-measured on 2026-11-01: a grounded answer came back correctly cited in 12.0s non-streaming (119 tokens); streaming emitted hidden `reasoning_content` first (17 deltas), the first visible token arrived at 7.4s, and the complete cited answer by 9.9s. The app ignores `reasoning_content` on both paths, and the existing `output_truncated` retry covers a reasoning-budget exhaustion. Vision and embeddings are unchanged.
+- **Appendices now indexed (2026-11-01)**: the index covers printed pp. 63–65 — Appendix A (Lupang Hinirang lyrics), B (Panunumpa ng Katapatan sa Watawat), C (The STIer's Creed), and D (STI Hymn). *“Provide me the lyrics of Lupang Hinirang written in handbook”* previously fell back to “I couldn't find a clear answer” (the p. 42 text only names the anthem); it now returns the full lyrics with the Appendix A (p. 63) citation, verified live on the Worker. Appendix E (uniform illustrations), F (a blank gate-pass form), and G (a signature form) stay out of the index on purpose: image-only or form pages would add noise without answer text.
+- **Embedding model replacement (2026-11-01)**: `nvidia/llama-3.2-nv-embedqa-1b-v2` is retired for this account (**HTTP 410** at rebuild time) and `nvidia/llama-3.2-nv-embedqa-1b-v1` is catalogue-only (**404**); `nvidia/nemotron-3.5-embed-1b` (2048-dim, live-verified) is the new default in the config, `.env.example`, and this README. The Worker was redeployed so runtime query embeddings use it, and the KV index was rebuilt (175 chunks, pp. 9–65).
+- **Unanswered-question log verified live (2026-11-01)**: *“What are the canteen prices?”* (no handbook coverage, top score 0.058) returns the fallback and records one anonymous `gap:` entry in KV; `npm run gaps -- --remote` lists it, and local/demo mode writes `data/gaps.jsonl`. Emails and long digit runs are redacted, no client identifiers are stored, and KV entries expire after 90 days.
+- **CI added (2026-11-01)**: `.github/workflows/ci.yml` runs `npm run test:ci` (60 handbook-free tests) on every push and pull request, and deploys the Worker on `main` once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set. The stale Pages project `chatbot-ai-development` was deleted so no static-only URL can serve 405 for `/api/*` again.
 - Independent audit of the security-sensitive paths: markdown rendering escapes before formatting and only links `https?://` URLs; image uploads are typed by file content, not extension; `.env` and the handbook PDF are gitignored; no key material is reachable from the browser.
 
 **Not verified:**

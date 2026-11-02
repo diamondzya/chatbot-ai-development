@@ -1971,6 +1971,7 @@
           String(ttl)
         )} minutes, then deleted. This app does not write images to disk. In AI mode the image is also sent to the vision model for transcription and description.</li>
         <li><strong>Conversations:</strong> messages live only in this browser tab and disappear on refresh or when you start a new chat.</li>
+        <li><strong>Unanswered questions:</strong> when no handbook passage clearly answers a question, the question text may be recorded (without your client identifier, IP address, or conversation history) so the site operator can find gaps in the handbook coverage. Obvious emails and long numbers are removed, and entries expire automatically.</li>
         <li><strong>Browser storage:</strong> a random client identifier is kept in local storage so the server can match your image uploads to this browser. No account or profile is created.</li>
       </ul>
 

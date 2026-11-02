@@ -32,6 +32,10 @@ export const GOLDEN = [
   { query: 'can I drink alcohol inside school', section: /Smoking, Vaping|Category A/i },
   { query: 'What does the handbook say about dangerous weapons?', section: /dangerous weapons/i },
   { query: 'What does the handbook say about bullying and harassment?', section: /Bullying|Harassment|Category C/i },
+  { query: 'Provide the lyrics of Lupang Hinirang', section: /Lupang Hinirang/i, page: 63 },
+  { query: 'Ano ang panunumpa ng katapatan sa watawat?', section: /Panunumpa/i, page: 64 },
+  { query: "What is the STIer's Creed?", section: /Creed/i, page: 64 },
+  { query: 'What are the lyrics of the STI Hymn?', section: /STI Hymn/i, page: 65 },
 ];
 
 export async function runEval() {

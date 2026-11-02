@@ -146,6 +146,13 @@ export const HANDBOOK_HEADINGS = [
   "School Administrator's/Deputy School Administrator's Office",
   'Confiscation Policy',
   'Lost and Found Items',
+  // Appendices with indexable text (printed pp. 63–65). The compound
+  // "Appendix X - Title" form matches the two-line layout in the PDF without
+  // matching lyric lines that repeat the title mid-song.
+  'Appendix A - Lupang Hinirang',
+  'Appendix B - Panunumpa ng Katapatan sa Watawat ng Pilipinas',
+  "Appendix C - The STIer's Creed",
+  'Appendix D - STI Hymn',
 ];
 
 // Extra search terms attached to a section. These never appear as policy text
@@ -270,6 +277,14 @@ export const SECTION_KEYWORDS = {
     'circular reply slip parent letter',
   'School-Student Relationship: A Legal Contract':
     'contract enrollment legal relationship student school',
+  'Appendix A - Lupang Hinirang':
+    'lupang hinirang lyrics anthem national anthem pambansang awit awit bayang magiliw perlas ng silanganan flag ceremony kanta kantahin',
+  'Appendix B - Panunumpa ng Katapatan sa Watawat ng Pilipinas':
+    'panunumpa pledge oath katapatan loyalty watawat philippine flag recitation panunumpa sa watawat',
+  "Appendix C - The STIer's Creed":
+    'sti stier creed panata pledge commitment values character i am an stier',
+  'Appendix D - STI Hymn':
+    'sti hymn school hymn school song awit himno lyrics kanta',
 };
 
 export const SUGGESTED_QUESTIONS = [

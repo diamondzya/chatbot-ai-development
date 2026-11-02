@@ -6,6 +6,7 @@ import {
   searchHandbook,
   tokenizeForTest,
 } from '../src/services/handbookSearch.js';
+import { INDEXED_PRINTED_PAGES } from '../src/services/handbookExtract.js';
 
 function sections(results) {
   return results.map((result) => result.section);
@@ -17,12 +18,17 @@ test('the handbook index loads with the expected document metadata', async () =>
 
   assert.equal(meta.title, 'STI High School Student Handbook');
   assert.equal(meta.published, 'July 2026');
-  assert.equal(meta.indexedPrintedPages.from, 9);
-  assert.equal(meta.indexedPrintedPages.to, 61);
+  assert.equal(meta.indexedPrintedPages.from, INDEXED_PRINTED_PAGES.from);
+  assert.equal(meta.indexedPrintedPages.to, INDEXED_PRINTED_PAGES.to);
   assert.ok(index.chunks.length >= 150, `expected at least 150 chunks, got ${index.chunks.length}`);
   assert.ok(meta.sections >= 120, `expected at least 120 sections, got ${meta.sections}`);
   assert.equal(index.vectors.length, index.chunks.length);
-  assert.ok(index.chunks.every((chunk) => chunk.page >= 9 && chunk.page <= 61));
+  assert.ok(
+    index.chunks.every(
+      (chunk) =>
+        chunk.page >= INDEXED_PRINTED_PAGES.from && chunk.page <= INDEXED_PRINTED_PAGES.to
+    )
+  );
   assert.ok(index.chunks.every((chunk) => typeof chunk.text === 'string' && chunk.text.length > 20));
 });
 
