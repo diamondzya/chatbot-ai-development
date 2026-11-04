@@ -101,6 +101,9 @@
     demoMode: null,
     aiVerified: false,
     serverOffline: false,
+    // The terms gate stays closed until storage (or an explicit accept) says
+    // otherwise; see readTermsAcceptance() and init().
+    termsAccepted: false,
     messages: [],
     attachment: null,
     uploadSeq: 0,
@@ -116,6 +119,9 @@
   let typingTimer = null;
   let typingIndex = 0;
   let lastFocused = null;
+  // A locked modal (the first-visit terms gate) ignores Escape, backdrop
+  // clicks, and the close button; only its own actions can close it.
+  let modalLocked = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -176,6 +182,8 @@
     tocList: $('tocList'),
     ttlNote: $('ttlNote'),
     aboutLink: $('aboutLink'),
+    termsLink: $('termsLink'),
+    termsBtn: $('termsBtn'),
     modalBackdrop: $('modalBackdrop'),
     modal: $('modal'),
     modalTitle: $('modalTitle'),
@@ -615,16 +623,20 @@
     }, duration);
   }
 
-  function openModal({ title, body, actions }) {
+  function openModal({ title, body, actions, locked = false, initialFocus = null }) {
     lastFocused = document.activeElement;
+    modalLocked = locked;
     els.modalTitle.textContent = title;
     els.modalBody.innerHTML = body;
     els.modalFoot.replaceChildren();
+    // A locked modal has no close button: the user must choose an action.
+    els.modalClose.hidden = locked;
 
     const list = Array.isArray(actions) && actions.length
       ? actions
       : [{ label: 'Got it', variant: 'primary', onClick: () => {} }];
 
+    let firstAction = null;
     for (const action of list) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -635,20 +647,33 @@
             ? 'primary-btn danger-btn'
             : 'primary-btn';
       button.textContent = action.label;
+      if (action.id) button.id = action.id;
+      if (action.disabled) button.disabled = true;
       button.addEventListener('click', () => {
         const result = action.onClick ? action.onClick() : undefined;
         if (result !== false) closeModal();
       });
       els.modalFoot.appendChild(button);
+      if (!firstAction) firstAction = button;
     }
 
     els.modalBackdrop.hidden = false;
     document.body.classList.add('modal-open');
-    requestAnimationFrame(() => els.modalClose.focus());
+    // Focus the requested control, otherwise the first action for a locked
+    // gate, otherwise the close button.
+    requestAnimationFrame(() => {
+      const preferred = initialFocus ? els.modalBody.querySelector(initialFocus) : null;
+      if (preferred) preferred.focus();
+      else if (locked && firstAction) firstAction.focus();
+      else els.modalClose.focus();
+    });
+    return els.modalFoot;
   }
 
   function closeModal() {
     if (els.modalBackdrop.hidden) return;
+    // A locked modal (the terms gate) can only be closed by accepting it.
+    if (modalLocked) return;
     els.modalBackdrop.hidden = true;
     document.body.classList.remove('modal-open');
     els.modalBody.replaceChildren();
@@ -656,6 +681,11 @@
       lastFocused.focus();
     }
     lastFocused = null;
+  }
+
+  function forceCloseModal() {
+    modalLocked = false;
+    closeModal();
   }
 
   function trapModalFocus(event) {
@@ -1643,6 +1673,7 @@
   }
 
   async function submitQuestion(rawText, options = {}) {
+    if (!state.termsAccepted) return;
     if (state.busy) return;
 
     const text =
@@ -1971,7 +2002,8 @@
           String(ttl)
         )} minutes, then deleted. This app does not write images to disk. In AI mode the image is also sent to the vision model for transcription and description.</li>
         <li><strong>Conversations:</strong> messages live only in this browser tab and disappear on refresh or when you start a new chat.</li>
-        <li><strong>Browser storage:</strong> a random client identifier is kept in local storage so the server can match your image uploads to this browser. No account or profile is created.</li>
+        <li><strong>Unanswered questions:</strong> when no handbook passage clearly answers a question, the question text may be recorded (without your client identifier, IP address, or conversation history) so the site operator can find gaps in the handbook coverage. Obvious emails and long numbers are removed, and entries expire automatically.</li>
+        <li><strong>Browser storage:</strong> a random client identifier is kept in local storage so the server can match your image uploads to this browser, along with your theme choice and your Terms of use acceptance (version and date). No account or profile is created.</li>
       </ul>
 
       <h3>Safety boundaries</h3>
@@ -1994,6 +2026,181 @@
       title: 'About & privacy',
       body: aboutHtml(),
       actions: [{ label: 'Got it', variant: 'primary' }],
+    });
+  }
+
+  // ------------------------------------------------------------------------
+  // Terms of use
+  // ------------------------------------------------------------------------
+
+  // Bump TERMS_VERSION whenever the terms change materially: the gate then
+  // reappears on every browser until the new version is accepted.
+  const TERMS_VERSION = '1';
+  const TERMS_STORAGE_KEY = 'sti-terms-accepted';
+
+  function readTermsAcceptance() {
+    try {
+      const raw = window.localStorage.getItem(TERMS_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.version === TERMS_VERSION) return parsed;
+    } catch {
+      /* Blocked storage or a corrupt value: ask again. */
+    }
+    return null;
+  }
+
+  function saveTermsAcceptance() {
+    try {
+      window.localStorage.setItem(
+        TERMS_STORAGE_KEY,
+        JSON.stringify({ version: TERMS_VERSION, acceptedAt: new Date().toISOString() })
+      );
+    } catch {
+      /* Storage can be blocked; acceptance then lasts for this page only. */
+    }
+  }
+
+  function termsHtml() {
+    return `
+      <div class="modal-callout">
+        <strong>Please read before you continue.</strong> STI Assist AI is an unofficial student prototype, not an STI service, and its answers are not official school policy. By accepting, you agree to these terms.
+      </div>
+
+      <h3>What this assistant is</h3>
+      <p>
+        It searches an index of the printed STI High School Student Handbook and answers questions about school rules and services. It is a prototype: features may change, break, or be removed without notice.
+      </p>
+
+      <h3>Acceptable use</h3>
+      <ul>
+        <li>Ask about school policy and student life, and follow the same standards of conduct expected on campus.</li>
+        <li>Do not use the assistant to cheat, harass or threaten anyone, plan or hide harm, or get around school rules or the law.</li>
+        <li>Requests for weapons, violence, self-harm, cheating, or rule evasion are refused and may be replaced with safety guidance.</li>
+      </ul>
+
+      <h3>Answers can be wrong</h3>
+      <p>
+        Answers are written from handbook passages and, in AI mode, by an AI model. Both can miss or misread things, even when a page is cited. Always verify important rules with your adviser, the school office, or the official handbook. Later official announcements may supersede the handbook.
+      </p>
+
+      <h3>Your privacy</h3>
+      <p>
+        No account is created. Your question and recent conversation are sent to this app's server, and in AI mode to the configured AI provider, to write an answer. Uploaded images are held in server memory for a limited time and then deleted. Questions with no clear handbook answer may be logged anonymously to improve coverage. The “About &amp; privacy” panel explains what is sent and stored in full.
+      </p>
+
+      <h3>Safety</h3>
+      <p>
+        This is not an emergency or counseling service. In immediate danger, contact a trusted adult or school personnel, or call <strong>911</strong> (Philippines).
+      </p>
+
+      <h3>Changes and acceptance</h3>
+      <p>
+        These terms may be updated as the prototype evolves. When they change, the assistant asks you to accept the new version. Accepting stores only a version number and a date in this browser.
+      </p>
+
+      <p class="terms-meta">Terms version ${TERMS_VERSION} · effective 2 November 2026</p>
+    `;
+  }
+
+  function acceptTerms() {
+    state.termsAccepted = true;
+    saveTermsAcceptance();
+    forceCloseModal();
+    showToast('Terms accepted. Ask about the handbook anytime.', 'success');
+    if (window.matchMedia('(min-width: 961px)').matches) {
+      els.messageInput.focus();
+    }
+  }
+
+  function showTermsGate() {
+    if (state.termsAccepted) return;
+    const foot = openModal({
+      title: 'Terms of use',
+      locked: true,
+      initialFocus: '#termsAgreeCheck',
+      body: `${termsHtml()}
+        <label class="terms-consent">
+          <input type="checkbox" id="termsAgreeCheck" />
+          <span>I have read and understood the Terms of use, and I accept them.</span>
+        </label>`,
+      actions: [
+        {
+          id: 'termsDeclineBtn',
+          label: "I don't agree",
+          variant: 'secondary',
+          onClick: () => {
+            showTermsDeclined();
+            return false;
+          },
+        },
+        {
+          id: 'termsAgreeBtn',
+          label: 'Agree and continue',
+          variant: 'primary',
+          disabled: true,
+          onClick: () => {
+            acceptTerms();
+            return false;
+          },
+        },
+      ],
+    });
+
+    const checkbox = els.modalBody.querySelector('#termsAgreeCheck');
+    const agreeButton = foot.querySelector('#termsAgreeBtn');
+    if (checkbox && agreeButton) {
+      checkbox.addEventListener('change', () => {
+        agreeButton.disabled = !checkbox.checked;
+      });
+    }
+  }
+
+  function showTermsDeclined() {
+    openModal({
+      title: 'Terms of use',
+      locked: true,
+      body: `
+        <div class="modal-callout">
+          <strong>You chose not to accept the Terms of use.</strong> The assistant cannot be used until they are accepted.
+        </div>
+        <p>
+          You can review the terms again whenever you are ready. If you do not agree, close this tab to leave the assistant.
+        </p>
+      `,
+      actions: [
+        {
+          id: 'termsReviewBtn',
+          label: 'Review the terms',
+          variant: 'primary',
+          onClick: () => {
+            showTermsGate();
+            return false;
+          },
+        },
+      ],
+    });
+  }
+
+  function showTerms() {
+    if (!state.termsAccepted) {
+      showTermsGate();
+      return;
+    }
+    const record = readTermsAcceptance();
+    const acceptedAt = record?.acceptedAt ? new Date(record.acceptedAt) : null;
+    const acceptedLabel =
+      acceptedAt && !Number.isNaN(acceptedAt.getTime())
+        ? acceptedAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        : null;
+    openModal({
+      title: 'Terms of use',
+      body: `${termsHtml()}${
+        acceptedLabel
+          ? `<p class="terms-meta">Accepted in this browser on ${escapeHtml(acceptedLabel)}.</p>`
+          : ''
+      }`,
+      actions: [{ label: 'Close', variant: 'primary' }],
     });
   }
 
@@ -2379,6 +2586,12 @@
         icon: 'info',
         run: () => showAbout(),
       },
+      {
+        label: 'Terms of use',
+        kind: 'Action',
+        icon: 'shield',
+        run: () => showTerms(),
+      },
     ].filter(Boolean);
 
     const suggestions = normaliseSuggestions(state.meta?.suggestedQuestions);
@@ -2450,6 +2663,7 @@
   }
 
   function openPalette() {
+    if (!state.termsAccepted) return;
     closeModal();
     setThemeMenuOpen(false);
     els.paletteBackdrop.hidden = false;
@@ -2720,6 +2934,8 @@
 
     els.aboutBtn.addEventListener('click', showAbout);
     els.aboutLink.addEventListener('click', showAbout);
+    els.termsLink.addEventListener('click', showTerms);
+    els.termsBtn.addEventListener('click', showTerms);
 
     els.modalClose.addEventListener('click', closeModal);
     els.modalBackdrop.addEventListener('click', (event) => {
@@ -2728,6 +2944,12 @@
 
     document.addEventListener('keydown', (event) => {
       const key = String(event.key || '').toLowerCase();
+      // A locked gate owns the keyboard: Tab stays trapped inside it and no
+      // shortcut (Ctrl+K, theme, Escape) can bypass it.
+      if (!els.modalBackdrop.hidden && modalLocked) {
+        if (event.key === 'Tab') trapModalFocus(event);
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && key === 'k') {
         event.preventDefault();
         if (els.paletteBackdrop.hidden) openPalette();
@@ -2787,6 +3009,7 @@
 
   function init() {
     state.clientId = getClientId();
+    state.termsAccepted = Boolean(readTermsAcceptance());
     initTheme();
     setPreferExcerpts(readExcerptsPreference(), { persist: false });
     setupVoiceInput();
@@ -2795,6 +3018,8 @@
     renderSuggestions(FALLBACK_SUGGESTIONS);
     applyModeState();
     updateComposer();
+    // First visit (or a terms update): block everything until accepted.
+    if (!state.termsAccepted) showTermsGate();
     loadMeta();
     registerServiceWorker();
   }

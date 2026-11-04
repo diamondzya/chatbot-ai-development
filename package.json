@@ -10,13 +10,16 @@
     "dev": "node --watch src/server.js",
     "index": "node scripts/index-handbook.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "test:ci": "node --test --test-concurrency=1 tests/safety.test.js tests/prompt.test.js tests/provider.test.js tests/worker.test.js tests/answer-eval.test.js",
     "check": "node scripts/check-config.js",
     "eval": "node scripts/eval-retrieval.js",
+    "eval:answers": "node scripts/eval-answers.js",
     "smoke": "node scripts/smoke-live.js",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
     "kv:upload": "node scripts/upload-index-kv.js --remote",
-    "kv:upload:local": "node scripts/upload-index-kv.js --local"
+    "kv:upload:local": "node scripts/upload-index-kv.js --local",
+    "gaps": "node scripts/gaps.js"
   },
   "engines": {
     "node": ">=20.19"

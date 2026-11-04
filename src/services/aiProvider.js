@@ -330,11 +330,19 @@ export async function chatCompletion({
         throw error;
       }
       if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-        throw new ProviderError(
+        // A stall before any response arrived is transient like a network
+        // failure, so it gets the same single retry instead of failing the
+        // student's question outright.
+        lastError = new ProviderError(
           'timeout',
           'The AI provider did not respond in time. Please try again in a moment.',
-          { status: 504, retryable: false, cause: error }
+          { status: 504, retryable: true, cause: error }
         );
+        if (attempt < maxRetries) {
+          await sleep(retryDelayMs * 2 ** attempt);
+          continue;
+        }
+        throw lastError;
       }
       // Network failures are worth one retry.
       lastError = new ProviderError(
@@ -395,7 +403,18 @@ export async function streamChatCompletion({
   let lastError = null;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const timeoutController = new AbortController();
-    const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+    // Streaming uses an idle timeout: the clock resets every time the provider
+    // sends data. A reasoning model can stream hidden `reasoning_content` for a
+    // long time before the visible answer starts, and a single total timeout
+    // aborted those slow-but-progressing requests (observed live at ~82 s under
+    // load) even though the model was working. A silent provider is still cut
+    // off after `timeoutMs` without a single byte.
+    let idleTimer = null;
+    const armIdleTimeout = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => timeoutController.abort(), timeoutMs);
+    };
+    armIdleTimeout();
     const signal =
       externalSignal && typeof AbortSignal.any === 'function'
         ? AbortSignal.any([timeoutController.signal, externalSignal])
@@ -414,6 +433,10 @@ export async function streamChatCompletion({
         body,
         signal,
       });
+
+      // The provider answered with headers; give it a fresh window to stream
+      // the body.
+      armIdleTimeout();
 
       if (!response.ok) {
         const raw = await response.text();
@@ -530,6 +553,8 @@ export async function streamChatCompletion({
         while (!done) {
           const { value, done: streamDone } = await reader.read();
           if (streamDone) break;
+          // Bytes keep arriving, so the provider is still working.
+          armIdleTimeout();
           buffer += decoder.decode(value, { stream: true });
           buffer = buffer.replace(/\r\n/g, '\n');
           let boundary;
@@ -581,11 +606,18 @@ export async function streamChatCompletion({
             cause: error,
           });
         }
-        throw new ProviderError(
+        lastError = new ProviderError(
           'timeout',
           'The AI provider did not respond in time. Please try again in a moment.',
-          { status: 504, cause: error }
+          { status: 504, retryable: true, cause: error }
         );
+        // A retry is only safe before the first visible token: repeating a
+        // partly streamed answer would duplicate text the student already saw.
+        if (!received && attempt < maxRetries) {
+          await sleep(retryDelayMs * 2 ** attempt);
+          continue;
+        }
+        throw lastError;
       }
       lastError = new ProviderError(
         'network_error',
@@ -598,7 +630,7 @@ export async function streamChatCompletion({
       }
       throw lastError;
     } finally {
-      clearTimeout(timer);
+      clearTimeout(idleTimer);
     }
   }
 

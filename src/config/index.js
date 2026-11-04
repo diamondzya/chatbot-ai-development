@@ -81,7 +81,12 @@ if (!['nvidia', 'openai-compatible'].includes(provider)) {
 const apiKey = clean(process.env.AI_API_KEY);
 const apiKeyLooksReal = apiKey !== '' && !/^replace/i.test(apiKey);
 const baseUrl = normaliseBaseUrl(process.env.AI_BASE_URL || 'https://integrate.api.nvidia.com/v1');
-const model = clean(process.env.AI_MODEL) || 'nvidia/nemotron-3.5-bolt-e4b';
+// Live-verified default (2026-11-01): DeepSeek V4.1 Flash via NVIDIA NIM.
+// It is a reasoning-style model: hidden `reasoning_content` arrives first
+// (~7 s) before the visible stream starts, but answers stay inside the
+// 900-token budget; a rare reasoning-budget exhaustion still hits the
+// output_truncated retry path.
+const model = clean(process.env.AI_MODEL) || 'deepseek-ai/deepseek-v4.1-flash';
 // Live-verified default: the 11B Llama vision model is listed in NVIDIA's
 // catalogue but is not deployed for every account (404), while the Nemotron
 // VL model answered correctly in testing.
@@ -136,6 +141,10 @@ export const config = Object.freeze({
     baseUrl,
     model,
     visionModel,
+    // How long a provider request may go without progress before it is
+    // aborted. Streaming resets this clock on every chunk (idle timeout), so a
+    // slow reasoning model that keeps sending data is not cut off mid-answer;
+    // a request that stalls without any data is retried once.
     timeoutMs: intEnv('AI_TIMEOUT_MS', 45000, { min: 5000, max: 120000 }),
     // Image requests are slower than text ones and some providers stall on
     // them, so this is separately tunable.
@@ -155,7 +164,7 @@ export const config = Object.freeze({
     provider: embeddingProvider,
     localModel: localEmbeddingModel,
     nvidiaModel:
-      clean(process.env.NVIDIA_EMBEDDING_MODEL) || 'nvidia/llama-3.2-nv-embedqa-1b-v2',
+      clean(process.env.NVIDIA_EMBEDDING_MODEL) || 'nvidia/nemotron-3.5-embed-1b',
     apiKey: embeddingApiKey,
     baseUrl: normaliseBaseUrl(
       process.env.EMBEDDING_BASE_URL || 'https://integrate.api.nvidia.com/v1'
@@ -174,6 +183,15 @@ export const config = Object.freeze({
     ttlMs: intEnv('ATTACHMENT_TTL_MINUTES', 30, { min: 1, max: 180 }) * 60 * 1000,
     maxCount: 20,
     maxTotalBytes: 60 * 1024 * 1024,
+  },
+  gapLog: {
+    // Anonymous log of questions that ended in the "couldn't find a clear
+    // answer" fallback (used to spot handbook coverage gaps). No client
+    // identifiers are stored. Set LOG_UNANSWERED_QUESTIONS=false to disable.
+    enabled: boolEnv('LOG_UNANSWERED_QUESTIONS', true),
+    ttlSeconds: intEnv('GAP_LOG_TTL_DAYS', 90, { min: 1, max: 365 }) * 24 * 60 * 60,
+    kvPrefix: clean(process.env.GAP_LOG_KV_PREFIX) || 'gap:',
+    maxQuestionChars: intEnv('GAP_LOG_MAX_QUESTION_CHARS', 500, { min: 40, max: 2000 }),
   },
   rateLimits: {
     apiWindowMs: 60 * 1000,

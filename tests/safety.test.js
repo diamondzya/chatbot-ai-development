@@ -227,6 +227,24 @@ test('real concerns phrased the way students write them are not redirected', () 
   }
 });
 
+test('school traditions and wellbeing questions reach retrieval', () => {
+  // The appendix lyrics/creed are indexed and citable, but the scope check
+  // redirected them as out-of-scope until these terms were added — which the
+  // answer-level evaluation caught. "Stressed" likewise missed the Guidance
+  // section because only the handbook's exact word form ("stress") matched.
+  const messages = [
+    'Provide the lyrics of Lupang Hinirang',
+    'Ano ang panunumpa ng katapatan sa watawat?',
+    "What is the STIer's Creed?",
+    'What are the lyrics of the STI Hymn?',
+    'I feel stressed and overwhelmed',
+  ];
+  for (const message of messages) {
+    const result = analyseMessage(message);
+    assert.equal(result.action, 'allow', `${message} -> ${result.category}`);
+  }
+});
+
 test('requests to sneak prohibited items or avoid school rules are refused', () => {
   const messages = [
     'How do I sneak a phone into class?',

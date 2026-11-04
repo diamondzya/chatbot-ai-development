@@ -1,7 +1,7 @@
 /* ==========================================================================
    Headless-browser checks for the client behaviors that unit tests cannot see:
-   streaming answers, citation links, follow-up chips, the theme menu, and the
-   quick-actions palette.
+   the first-visit terms gate, streaming answers, citation links, follow-up
+   chips, the theme menu, and the quick-actions palette.
 
    Uses the Chrome DevTools Protocol directly (no test framework dependency).
    Skips itself when no Chromium-based browser or no global WebSocket exists,
@@ -87,10 +87,26 @@ async function waitFor(expression, timeoutMs = 12000, label = expression) {
   throw new Error(`Timed out waiting for: ${label}`);
 }
 
-async function navigate(url) {
+async function acceptTermsIfShown() {
+  const shown = await evaluate(`(() => {
+    const checkbox = document.getElementById('termsAgreeCheck');
+    if (!checkbox || document.getElementById('modalBackdrop').hidden) return false;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('termsAgreeBtn').click();
+    return true;
+  })()`);
+  if (shown) {
+    await waitFor('document.getElementById("modalBackdrop").hidden', 4000, 'terms accepted');
+  }
+  return shown;
+}
+
+async function navigate(url, { acceptTerms = true } = {}) {
   await send('Page.navigate', { url });
   await waitFor('document.readyState === "complete"', 15000, 'page load');
   await waitFor('Boolean(document.getElementById("startCards"))', 15000, 'app shell');
+  if (acceptTerms) await acceptTermsIfShown();
 }
 
 async function ask(question) {
@@ -200,6 +216,86 @@ after(async () => {
       /* Windows may still hold the profile briefly. */
     }
   }
+});
+
+test('the first visit is gated by the terms of use', { skip }, async () => {
+  await navigate(globalThis.__stiTestUrl, { acceptTerms: false });
+
+  const gate = await evaluate(`({
+    open: !document.getElementById('modalBackdrop').hidden,
+    title: document.getElementById('modalTitle').textContent,
+    closeHidden: document.getElementById('modalClose').hidden,
+    agreeDisabled: document.getElementById('termsAgreeBtn').disabled,
+    stored: localStorage.getItem('sti-terms-accepted'),
+  })`);
+  assert.equal(gate.open, true, 'the gate must open on a first visit');
+  assert.match(gate.title, /Terms of use/i);
+  assert.equal(gate.closeHidden, true, 'a locked gate has no close button');
+  assert.equal(gate.agreeDisabled, true, 'agree stays disabled until the checkbox is ticked');
+  assert.equal(gate.stored, null, 'nothing is stored before acceptance');
+
+  // The chat is blocked while the gate is open: submitting does nothing.
+  await evaluate(`(() => {
+    const input = document.getElementById('messageInput');
+    input.value = 'What should I do if I forget my school ID?';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('composer').requestSubmit();
+    return true;
+  })()`);
+  await sleep(400);
+  const blocked = await evaluate(`({
+    messages: document.querySelectorAll('.message').length,
+    gateStillOpen: !document.getElementById('modalBackdrop').hidden,
+  })`);
+  assert.equal(blocked.messages, 0, 'no question may be sent before accepting');
+  assert.equal(blocked.gateStillOpen, true);
+
+  // Escape, backdrop clicks, and Ctrl+K must not dismiss or bypass the gate.
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await evaluate(`document.getElementById('modalBackdrop').click()`);
+  await evaluate(
+    `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`
+  );
+  const afterEscapes = await evaluate(`({
+    gateOpen: !document.getElementById('modalBackdrop').hidden,
+    paletteHidden: document.getElementById('paletteBackdrop').hidden,
+  })`);
+  assert.equal(afterEscapes.gateOpen, true);
+  assert.equal(afterEscapes.paletteHidden, true, 'the quick-actions palette stays locked too');
+
+  // The gate itself must not introduce horizontal overflow.
+  assert.equal(
+    await evaluate(`document.documentElement.scrollWidth > window.innerWidth + 1`),
+    false
+  );
+
+  // Declining swaps to the declined notice, which can go back to the terms.
+  await evaluate(`document.getElementById('termsDeclineBtn').click()`);
+  assert.match(await evaluate(`document.getElementById('modalBody').innerText`), /not to accept/i);
+  await evaluate(`document.getElementById('termsReviewBtn').click()`);
+  assert.equal(await evaluate(`Boolean(document.getElementById('termsAgreeCheck'))`), true);
+
+  // Ticking the checkbox enables agreement, and accepting lets the chat work.
+  await evaluate(`(() => {
+    const checkbox = document.getElementById('termsAgreeCheck');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  assert.equal(
+    await evaluate(`document.getElementById('termsAgreeBtn').disabled`),
+    false,
+    'agree enables once the checkbox is ticked'
+  );
+  await evaluate(`document.getElementById('termsAgreeBtn').click()`);
+  await waitFor('document.getElementById("modalBackdrop").hidden', 4000, 'gate closes after accepting');
+
+  const stored = await evaluate(`JSON.parse(localStorage.getItem('sti-terms-accepted'))`);
+  assert.equal(stored.version, '1');
+
+  // Acceptance persists across reloads: the gate does not come back.
+  await navigate(globalThis.__stiTestUrl, { acceptTerms: false });
+  assert.equal(await evaluate(`document.getElementById('modalBackdrop').hidden`), true);
 });
 
 test('the client renders the welcome state without horizontal overflow', { skip }, async () => {

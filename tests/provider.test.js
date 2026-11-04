@@ -305,7 +305,7 @@ test('repeated provider outages are reported after retries are exhausted', async
   assert.equal(calls, 2);
 });
 
-test('timeouts become a clear 504 error without retrying', async () => {
+test('timeouts are retried once and still become a clear 504 error', async () => {
   let calls = 0;
   const fetchImpl = async () => {
     calls += 1;
@@ -328,7 +328,32 @@ test('timeouts become a clear 504 error without retrying', async () => {
   assert.equal(error.code, 'timeout');
   assert.equal(error.status, 504);
   assert.match(error.message, /did not respond in time/i);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
+});
+
+test('a transient timeout is retried and can recover', async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      throw error;
+    }
+    return jsonResponse(successBody('Recovered after a timeout.'));
+  };
+
+  const result = await chatCompletion({
+    messages: [{ role: 'user', content: 'Hello' }],
+    apiKey: 'test-key',
+    baseUrl: 'https://example.com/v1',
+    maxRetries: 1,
+    retryDelayMs: 0,
+    fetchImpl,
+  });
+
+  assert.equal(result.content, 'Recovered after a timeout.');
+  assert.equal(calls, 2);
 });
 
 test('network failures retry and then map to a network error', async () => {
@@ -422,6 +447,89 @@ test('streaming falls back to a JSON completion when the provider ignores stream
   assert.deepEqual(deltas, ['Fallback answer.']);
   assert.equal(result.content, 'Fallback answer.');
   assert.equal(result.finishReason, 'stop');
+});
+
+test('a slow stream that keeps sending data is not cut off by the idle timeout', async () => {
+  const expected = Array.from({ length: 36 }, (_, index) => `c${index} `)
+    .join('')
+    .trim();
+  const blocks = Array.from(
+    { length: 36 },
+    (_, index) => `data: {"choices":[{"delta":{"content":"c${index} "},"finish_reason":null}]}\n\n`
+  );
+  blocks.push('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+  blocks.push('data: [DONE]\n\n');
+
+  const encoder = new TextEncoder();
+  const fetchImpl = async () =>
+    new Response(
+      new ReadableStream({
+        async start(controller) {
+          for (const block of blocks) {
+            // ~20 ms per block: the 38 blocks take ~0.75 s total, well past
+            // the 0.6 s timeout, while each individual gap stays far below it.
+            // Without the idle-timeout reset, the abort would cut the stream
+            // short mid-answer.
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            controller.enqueue(encoder.encode(block));
+          }
+          controller.close();
+        },
+      }),
+      { headers: { 'content-type': 'text/event-stream' } }
+    );
+
+  const deltas = [];
+  const result = await streamChatCompletion({
+    messages: [{ role: 'user', content: 'Hello' }],
+    apiKey: 'test-key',
+    baseUrl: 'https://example.com/v1',
+    model: 'test-model',
+    timeoutMs: 600,
+    onDelta: (text) => deltas.push(text),
+    fetchImpl,
+  });
+
+  assert.equal(result.content, expected);
+  assert.equal(deltas.length, 36);
+});
+
+test('a stalled stream is retried before the first token and can recover', async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, options) => {
+    calls += 1;
+    if (calls === 1) {
+      // A stream that never sends data. Aborting the request must surface as a
+      // timeout, exactly like a real fetch.
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            options.signal?.addEventListener('abort', () => {
+              controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            });
+          },
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
+      );
+    }
+    return sseResponse(
+      'data: {"choices":[{"delta":{"content":"Recovered."},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+    );
+  };
+
+  const result = await streamChatCompletion({
+    messages: [{ role: 'user', content: 'Hello' }],
+    apiKey: 'test-key',
+    baseUrl: 'https://example.com/v1',
+    model: 'test-model',
+    timeoutMs: 50,
+    maxRetries: 1,
+    retryDelayMs: 0,
+    fetchImpl,
+  });
+
+  assert.equal(result.content, 'Recovered.');
+  assert.equal(calls, 2);
 });
 
 test('vision analysis sends one user message with the image data URL', async () => {

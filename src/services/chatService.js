@@ -4,6 +4,7 @@ import { SUGGESTED_QUESTIONS } from '../config/handbook.js';
 import { HttpError } from '../errors.js';
 import { analyseImage, chatCompletion, ProviderError, streamChatCompletion } from './aiProvider.js';
 import { getAttachment } from './attachments.js';
+import { isUnansweredAnswer, recordUnansweredQuestion } from './gapLog.js';
 import { getIndexMeta, searchHandbook, tokenize } from './handbookSearch.js';
 import { formatPageRange, buildMessages } from './promptBuilder.js';
 import { analyseMessage, GUIDE_RESPONSES } from './safetyFilter.js';
@@ -587,6 +588,16 @@ export async function handleChat({
       variant,
     });
     const sources = imageQuestion ? [] : displaySources;
+    if (isUnansweredAnswer(answer)) {
+      // Anonymous coverage-gap record: which question the handbook failed to
+      // answer. Never stores client identifiers (see src/services/gapLog.js).
+      await recordUnansweredQuestion({
+        question,
+        mode: variant,
+        retrieval,
+        sources: displaySources,
+      });
+    }
     const followUps = buildFollowUps({ question, sources });
     const safety = {
       level: analysis.safetyLevel,
@@ -747,6 +758,16 @@ export async function handleChat({
     answer += `\n\n> Image note: ${imageWarning}`;
   }
   answer = ensureHandbookFallback(answer, modelSources, analysis);
+  if (isUnansweredAnswer(answer)) {
+    // Anonymous coverage-gap record: which question the handbook failed to
+    // answer. Never stores client identifiers (see src/services/gapLog.js).
+    await recordUnansweredQuestion({
+      question,
+      mode: 'ai',
+      retrieval,
+      sources: displaySources,
+    });
+  }
   answer = appendSafetyNote(answer, analysis);
 
   const citationCheck = verifyCitations(answer, modelSources);

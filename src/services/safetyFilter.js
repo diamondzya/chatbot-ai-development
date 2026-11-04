@@ -315,6 +315,16 @@ const SCHOOL_TERMS = [
   'flag ceremony',
   'flag raising',
   'flag lowering',
+  // National anthem, pledge, and school hymns/creed (handbook appendices A–D).
+  // Without these the scope check redirected the school's own lyrics and creed
+  // as out-of-scope even though they are indexed and citable.
+  'hinirang',
+  'panunumpa',
+  'watawat',
+  'creed',
+  'hymn',
+  'anthem',
+  'stier',
   'cctv',
   'bag check',
   'bag inspection',
@@ -332,6 +342,11 @@ const SCHOOL_TERMS = [
   'counseling',
   'mental health',
   'stress',
+  // Common inflections students actually type; "I feel stressed and
+  // overwhelmed" was redirected as out-of-scope before reaching the Guidance
+  // section.
+  'stressed',
+  'overwhelmed',
 
   // Money and records
   'tuition',

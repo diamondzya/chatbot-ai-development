@@ -1,3 +1,16 @@
+# Continuous integration for STI Assist AI.
+#
+# The full local suite (`npm test`) covers retrieval against the real handbook
+# index, which is intentionally gitignored because the PDF may be confidential.
+# A fresh CI checkout has no handbook data, so CI runs the subset that needs
+# none (`npm run test:ci`) across the supported Node versions, and deploys the
+# Worker on main once Cloudflare credentials exist as repository secrets:
+#
+#   CLOUDFLARE_API_TOKEN   token with Workers Scripts:Edit (and KV if desired)
+#   CLOUDFLARE_ACCOUNT_ID  from `npx wrangler whoami`
+#
+# The KV handbook index is not part of the deploy; refresh it from a machine
+# that has the PDF with `npm run kv:upload` after changing the handbook.
 name: CI
 
 on:
@@ -5,7 +18,8 @@ on:
   pull_request:
 
 jobs:
-  test:
+  tests:
+    name: Unit tests (Node ${{ matrix.node }}, no handbook data required)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -13,33 +27,33 @@ jobs:
         node: ['20', '22', '24']
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      # --ignore-scripts skips native downloads (onnxruntime) that the
+      # handbook-free subset does not need.
+      - run: npm ci --ignore-scripts
+      - run: npm run test:ci
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configuration check
-        run: npm run check
-
-      - name: Retrieval evaluation thresholds
-        run: npm run eval
-
-      - name: Tests
-        run: npm test
-        env:
-          CI: true
-
-      - name: Upload retrieval report
-        if: always()
-        run: npm run eval -- --json > retrieval-report.json || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
+  deploy:
+    name: Deploy Worker
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          name: retrieval-report-node-${{ matrix.node }}
-          path: retrieval-report.json
-          if-no-files-found: ignore
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Deploy to Cloudflare Workers
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx wrangler deploy
+      - name: Missing credentials notice
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::warning::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets to enable automatic deploys."

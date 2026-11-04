@@ -222,7 +222,16 @@ export async function extractPdfPages(pdfPath) {
   return { pages, numPages };
 }
 
-export function buildHandbookChunks(pages, { firstPrintedPage = 9, lastPrintedPage = 61 } = {}) {
+// Printed pages that carry indexable content. The appendices with real text
+// (A — Lupang Hinirang, B — Panunumpa, D — STI Hymn, printed pp. 63–65) are
+// included; Appendix E (uniform illustrations), F (a blank gate-pass form),
+// and G (a signature form) are image-only or forms and would only add noise.
+export const INDEXED_PRINTED_PAGES = Object.freeze({ from: 9, to: 65 });
+
+export function buildHandbookChunks(
+  pages,
+  { firstPrintedPage = INDEXED_PRINTED_PAGES.from, lastPrintedPage = INDEXED_PRINTED_PAGES.to } = {}
+) {
   const dividerPages = new Set([8, 16, 31, 36, 59, 62]);
   const chunks = [];
   let currentChapter = 'General Information';
@@ -311,7 +320,10 @@ export function buildDocumentMeta({ pdfPath, numPages, pages }) {
       'The handbook states that it applies to all students, both returning and newly enrolled, unless a specific policy states otherwise.',
     sourceFile: path.basename(pdfPath),
     pdfPages: numPages,
-    indexedPrintedPages: { from: 9, to: 61 },
+    indexedPrintedPages: {
+      from: INDEXED_PRINTED_PAGES.from,
+      to: INDEXED_PRINTED_PAGES.to,
+    },
     pageOffsetNote: 'Printed page numbers are one less than the PDF page numbers.',
     officialStatus:
       'Unofficial prototype. STI Assist AI is not an official STI service unless formally authorized.',
