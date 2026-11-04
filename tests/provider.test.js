@@ -75,12 +75,41 @@ test('a successful chat completion sends the expected request and returns usage'
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'https://example.com/v1/chat/completions');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer test-key');
+  assert.equal(calls[0].options.headers.Accept, 'text/event-stream');
   assert.equal(calls[0].body.model, 'test-model');
-  assert.equal(calls[0].body.stream, false);
+  assert.equal(calls[0].body.stream, true);
   assert.equal(result.content, 'Grounded answer.');
   assert.equal(result.finishReason, 'stop');
   assert.equal(result.usage.totalTokens, 18);
   assert.equal(result.model, 'test-model');
+});
+
+test('a non-streaming call is sent as a stream and assembled internally', async () => {
+  let captured = null;
+  const result = await chatCompletion({
+    messages: [{ role: 'user', content: 'Hello' }],
+    apiKey: 'test-key',
+    baseUrl: 'https://example.com/v1',
+    model: 'test-model',
+    fetchImpl: async (_url, options) => {
+      captured = JSON.parse(options.body);
+      return sseResponse(
+        [
+          'data: {"choices":[{"delta":{"content":"Assembled "},"finish_reason":null}]}',
+          '',
+          'data: {"choices":[{"delta":{"content":"from stream."},"finish_reason":"stop"}]}',
+          '',
+          'data: [DONE]',
+          '',
+          '',
+        ].join('\n')
+      );
+    },
+  });
+
+  assert.equal(captured.stream, true);
+  assert.equal(result.content, 'Assembled from stream.');
+  assert.equal(result.finishReason, 'stop');
 });
 
 test('missing credentials fail safely without making a network request', async () => {

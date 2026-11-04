@@ -229,8 +229,10 @@ function normaliseDeltaContent(delta) {
  * The NVIDIA NIM hosted endpoint is OpenAI-compatible:
  *   POST https://integrate.api.nvidia.com/v1/chat/completions
  *
- * `fetchImpl` is injectable so tests can exercise success, timeout, retry, and
- * provider-error paths without making network requests.
+ * The non-streamed call is sent with stream=true internally: reasoning models
+ * can withhold a non-streamed answer for minutes while the identical streamed
+ * request starts right away and keeps advancing (the idle timeout resets on
+ * every chunk). Callers still receive the fully assembled answer.
  */
 export async function chatCompletion({
   messages,
@@ -244,129 +246,19 @@ export async function chatCompletion({
   retryDelayMs = 700,
   fetchImpl = globalThis.fetch,
 } = {}) {
-  const endpoint = assertChatConfiguration({ messages, apiKey, baseUrl, model, fetchImpl });
-
-  const body = JSON.stringify({
-    model,
+  return streamChatCompletion({
     messages,
+    model,
+    apiKey,
+    baseUrl,
+    timeoutMs,
+    maxTokens,
     temperature,
-    max_tokens: maxTokens,
-    stream: false,
+    maxRetries,
+    retryDelayMs,
+    fetchImpl,
+    onDelta: () => {},
   });
-
-  let lastError = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetchImpl(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body,
-        signal: controller.signal,
-      });
-
-      const raw = await response.text();
-      let data = null;
-      if (raw) {
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          data = null;
-        }
-      }
-
-      if (!response.ok) {
-        const mapped = providerErrorForStatus(response.status, response, data);
-        // Retry only when the status is transient and another attempt is allowed.
-        if (mapped.retryable && attempt < maxRetries) {
-          lastError = mapped;
-          const wait = parseRetryAfter(response) || retryDelayMs * 2 ** attempt;
-          await sleep(wait);
-          continue;
-        }
-        throw mapped;
-      }
-
-      if (!data) {
-        throw new ProviderError(
-          'bad_response',
-          'The AI provider returned a response that was not valid JSON. Please try again.',
-          { status: 502 }
-        );
-      }
-
-      const extracted = extractContent(data);
-      if (!extracted) {
-        // A reasoning model can spend the whole max_tokens budget on hidden
-        // reasoning and return no visible answer at all.
-        if (data?.choices?.[0]?.finish_reason === 'length') {
-          throw truncatedOutputError();
-        }
-        throw new ProviderError(
-          'bad_response',
-          'The AI provider returned an empty or malformed response. Please try again.',
-          { status: 502 }
-        );
-      }
-
-      return {
-        content: extracted.content,
-        finishReason: extracted.finishReason,
-        model: data.model || model,
-        usage: usageFrom(data),
-      };
-    } catch (error) {
-      if (error instanceof ProviderError) {
-        if (error.retryable && attempt < maxRetries) {
-          lastError = error;
-          await sleep(retryDelayMs * 2 ** attempt);
-          continue;
-        }
-        throw error;
-      }
-      if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-        // A stall before any response arrived is transient like a network
-        // failure, so it gets the same single retry instead of failing the
-        // student's question outright.
-        lastError = new ProviderError(
-          'timeout',
-          'The AI provider did not respond in time. Please try again in a moment.',
-          { status: 504, retryable: true, cause: error }
-        );
-        if (attempt < maxRetries) {
-          await sleep(retryDelayMs * 2 ** attempt);
-          continue;
-        }
-        throw lastError;
-      }
-      // Network failures are worth one retry.
-      lastError = new ProviderError(
-        'network_error',
-        'The server could not reach the AI provider. Check the network connection and try again.',
-        { status: 502, retryable: true, cause: error }
-      );
-      if (attempt < maxRetries) {
-        await sleep(retryDelayMs * 2 ** attempt);
-        continue;
-      }
-      throw lastError;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  throw (
-    lastError ||
-    new ProviderError('provider_unavailable', 'The AI provider is temporarily unavailable.', {
-      status: 502,
-      retryable: true,
-    })
-  );
 }
 
 /**
