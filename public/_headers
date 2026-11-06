@@ -1,12 +1,12 @@
-# Security headers for static assets served by Cloudflare Workers Static Assets.
+# Security headers for static assets served by Cloudflare Pages and Workers.
 #
 # On the local Node server these headers come from Helmet (src/app.js); this
-# file gives the asset-served HTML/CSS/JS the same protections on Workers,
+# file gives the asset-served HTML/CSS/JS the same protections on Pages/Workers,
 # where the assets system answers before Express runs. Keep the two in sync
 # when the Helmet configuration changes.
 #
 # `upgrade-insecure-requests` is deliberately omitted so `wrangler dev` on
-# plain http://localhost keeps working; production Workers are always HTTPS.
+# plain http://localhost keeps working; production hosting is always HTTPS.
 
 /*
   Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'

@@ -2,6 +2,8 @@
 
 An unofficial, handbook-grounded student assistant for **STI High School**. It answers questions about school rules using the **STI High School Student Handbook (July 2026)** and shows the section and printed page behind every answer.
 
+**Live site:** https://sti-assist-ai.pages.dev/ · **Chat:** https://sti-assist-ai.pages.dev/chat/
+
 > **Unofficial prototype.** STI Assist AI is not affiliated with, endorsed by, or operated by STI. It is not an official school service. Handbook text and STI marks belong to their respective owners. Always confirm important policies with your adviser or school office.
 
 ---
@@ -14,6 +16,7 @@ An unofficial, handbook-grounded student assistant for **STI High School**. It a
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Quick start (local demo mode)](#quick-start-local-demo-mode)
+- [Cloudflare Pages (public site)](#cloudflare-pages-public-site)
 - [Cloudflare Workers (free plan)](#cloudflare-workers-free-plan)
 - [Enable AI answers (NVIDIA NIM)](#enable-ai-answers-nvidia-nim)
 - [Handbook indexing](#handbook-indexing)
@@ -210,6 +213,49 @@ npm run eval         # retrieval scoreboard (hit@3 and page accuracy)
 npm run eval:answers # answer-level scoreboard (citations, fallbacks, refusals)
 npm run gaps         # list unanswered questions logged for handbook gaps
 ```
+
+---
+
+## Cloudflare Pages (public site)
+
+The public homepage and chat are hosted at **https://sti-assist-ai.pages.dev/**.
+Pages serves `public/` and sends `/api` and `/api/*` through the `CHAT_API`
+service binding to the `sti-assist-ai` Worker. The browser uses same-origin
+API URLs throughout; the binding preserves request headers and streams SSE
+responses directly. The Worker continues to hold the AI secrets and handbook
+KV binding.
+
+Configuration lives in `pages/wrangler.jsonc`, with API routes in
+`pages/functions/`. There is no frontend build step.
+
+```powershell
+# One-time creation on a new account (after deploying the backend Worker)
+npx wrangler pages project create sti-assist-ai --production-branch main --cwd pages --force
+
+# Publish homepage/chat assets and the Pages API routes
+npm run deploy:pages
+
+# Publish both the backend and the Pages site
+npm run deploy
+```
+
+The Pages commands use `--force` to explicitly select a `pages.dev` deployment:
+Wrangler 4.156 otherwise delegates Pages creation/deployment to Workers in this
+environment. `--cwd pages` selects the Pages configuration rather than the
+root Worker configuration. `npm run deploy:worker` updates just the backend,
+using `--keep-vars` to preserve its dashboard variables.
+
+The Pages project uses Direct Upload with `main` as its production branch.
+Publish it from an authenticated local checkout using the commands above.
+For API-token authentication, publishing both services requires **Cloudflare
+Pages:Edit** and **Workers Scripts:Edit** permissions. The existing GitHub
+workflow tests changes and has an optional Worker deployment step; it does not
+publish Pages. To automate both later, configure the repository's Cloudflare
+credentials and change that deployment step to `npm run deploy`.
+
+For local development, `npm start` continues to serve the whole application.
+To exercise the Pages service binding locally, run `npm run dev:worker` and,
+in a second terminal, `npx wrangler pages dev --cwd pages`.
 
 ---
 

@@ -16,7 +16,9 @@
     "eval:answers": "node scripts/eval-answers.js",
     "smoke": "node scripts/smoke-live.js",
     "dev:worker": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run deploy:worker && npm run deploy:pages",
+    "deploy:worker": "wrangler deploy --keep-vars",
+    "deploy:pages": "wrangler pages deploy --cwd pages --project-name sti-assist-ai --branch main --force",
     "kv:upload": "node scripts/upload-index-kv.js --remote",
     "kv:upload:local": "node scripts/upload-index-kv.js --local",
     "gaps": "node scripts/gaps.js"
