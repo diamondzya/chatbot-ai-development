@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="home-root">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -34,9 +34,9 @@
         <span class="home-brand-mark" aria-hidden="true">STI</span>
         <span>Assist<span class="home-brand-ai">AI</span></span>
       </a>
-      <nav class="home-nav" aria-label="Main navigation">
-        <a href="#how-it-works">How it works</a>
+      <nav class="home-nav" id="homeNav" aria-label="Main navigation">
         <a href="#topics">Explore topics</a>
+        <a href="#how-it-works">How it works</a>
         <a href="#faq">FAQs</a>
       </nav>
       <div class="home-header-actions">
@@ -47,44 +47,51 @@
       </div>
     </header>
 
-    <main id="homeMain">
+    <main id="homeMain" tabindex="-1">
       <section class="home-hero" aria-labelledby="heroTitle">
-        <div class="hero-orbit" aria-hidden="true"></div>
-        <p class="home-eyebrow"><span></span> Your student handbook companion</p>
-        <h1 id="heroTitle">A little clarity for<br />your <span>school day.</span></h1>
-        <p class="home-hero-copy">School rules, everyday questions, and the “what ifs.”<br class="desktop-break" /> Find your way through the STI handbook, one conversation at a time.</p>
-        <div class="home-hero-actions">
-          <a class="home-button" id="startChatLink" href="/chat/">Start chatting <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a>
-          <a class="home-secondary-link" href="#how-it-works">See how it works <span aria-hidden="true">↗</span></a>
-        </div>
-        <p class="home-hero-note">No sign-in needed <span aria-hidden="true">·</span> English &amp; Taglish welcome</p>
+        <div class="home-hero-inner">
+          <div class="home-hero-intro">
+            <p class="home-eyebrow"><span aria-hidden="true"></span> Your student handbook companion</p>
+            <h1 id="heroTitle">A little clarity for your <span>school day.</span></h1>
+            <p class="home-hero-copy">School rules, everyday questions, and the “what ifs.” Find your way through the STI handbook, one conversation at a time.</p>
+            <div class="home-hero-actions">
+              <a class="home-button" id="startChatLink" href="/chat/">Start chatting <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a>
+              <a class="home-secondary-link" href="#topics">Explore topics <span aria-hidden="true">↓</span></a>
+            </div>
+            <div class="home-hero-note"><span><svg class="icon" aria-hidden="true"><use href="#h-check"></use></svg> No sign-in needed</span><span><svg class="icon" aria-hidden="true"><use href="#h-chat"></use></svg> English &amp; Taglish</span></div>
+          </div>
 
-        <div class="home-preview" aria-label="A preview of how the assistant works">
-          <div class="preview-heading"><span><svg class="icon" aria-hidden="true"><use href="#h-spark"></use></svg> A question is a good place to start</span><span class="preview-tag">Handbook companion</span></div>
-          <a class="preview-question" href="/chat/?topic=id"><span>“What if I forget my school ID?”</span><span class="preview-send" aria-hidden="true"><svg class="icon"><use href="#h-arrow"></use></svg></span></a>
-          <div class="preview-path">
-            <span><svg class="icon" aria-hidden="true"><use href="#h-chat"></use></svg> Ask in your own words</span>
-            <span class="preview-path-arrow" aria-hidden="true">→</span>
-            <span><svg class="icon" aria-hidden="true"><use href="#h-book"></use></svg> Find relevant passages</span>
-            <span class="preview-path-arrow" aria-hidden="true">→</span>
-            <span><svg class="icon" aria-hidden="true"><use href="#h-check"></use></svg> Check the source</span>
+          <div class="home-preview" aria-labelledby="previewTitle">
+            <div class="preview-heading">
+              <span class="preview-avatar" aria-hidden="true"><svg class="icon"><use href="#h-spark"></use></svg></span>
+              <div><span class="preview-tag">A good place to start</span><h2 id="previewTitle">What’s on your mind?</h2></div>
+              <span class="preview-edition">STI<br />Handbook</span>
+            </div>
+            <div class="preview-body">
+              <p class="preview-label">Pick a question to take into chat</p>
+              <a class="preview-question" href="/chat/?topic=id"><svg class="icon preview-question-icon" aria-hidden="true"><use href="#h-id"></use></svg><span>What if I forget my school ID?</span><span class="preview-send" aria-hidden="true"><svg class="icon"><use href="#h-arrow"></use></svg></span></a>
+              <a class="preview-question" href="/chat/?topic=uniform"><svg class="icon preview-question-icon" aria-hidden="true"><use href="#h-shirt"></use></svg><span>What’s the school dress code?</span><span class="preview-send" aria-hidden="true"><svg class="icon"><use href="#h-arrow"></use></svg></span></a>
+              <a class="preview-question" href="/chat/?topic=tardiness"><svg class="icon preview-question-icon" aria-hidden="true"><use href="#h-clock"></use></svg><span>What happens if I’m late?</span><span class="preview-send" aria-hidden="true"><svg class="icon"><use href="#h-arrow"></use></svg></span></a>
+              <div class="preview-source"><span class="preview-source-icon" aria-hidden="true"><svg class="icon"><use href="#h-book"></use></svg></span><div><strong>Clarity, with a source.</strong><p>Handbook passages you can open and check.</p></div></div>
+            </div>
           </div>
         </div>
+        <div class="home-hero-foot"><span>Built around the STI High School Student Handbook</span><a href="#how-it-works">See how it works <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a></div>
       </section>
 
-      <section class="home-topics home-section" id="topics" aria-labelledby="topicsTitle">
+      <section class="home-topics home-section" id="topics" aria-labelledby="topicsTitle" tabindex="-1">
         <div class="home-section-heading"><div><p class="home-kicker">Made for the everyday</p><h2 id="topicsTitle">What’s on your mind?</h2></div><p>Pick a topic. We’ll help you get started.</p></div>
         <div class="home-topic-grid">
-          <a class="home-topic" href="/chat/?topic=id"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-id"></use></svg></span><h3>IDs &amp; entry</h3><p>Forgot your ID?<br />Find out what comes next.</p><span class="topic-action">Ask about IDs <span aria-hidden="true">↗</span></span></a>
-          <a class="home-topic" href="/chat/?topic=uniform"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-shirt"></use></svg></span><h3>Uniform &amp; dress</h3><p>Know what to wear,<br />and when to wear it.</p><span class="topic-action">Explore the dress code <span aria-hidden="true">↗</span></span></a>
-          <a class="home-topic" href="/chat/?topic=tardiness"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-clock"></use></svg></span><h3>Attendance</h3><p>Get clarity on absences<br />and arriving late.</p><span class="topic-action">Check attendance rules <span aria-hidden="true">↗</span></span></a>
-          <a class="home-topic" href="/chat/?topic=phone"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-phone"></use></svg></span><h3>Phones &amp; gadgets</h3><p>Understand where your<br />devices fit into the day.</p><span class="topic-action">Ask about gadgets <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=id"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-id"></use></svg></span><div class="topic-copy"><h3>IDs &amp; entry</h3><p>Forgot your ID? Find out what comes next.</p></div><span class="topic-action">Ask about IDs <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=uniform"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-shirt"></use></svg></span><div class="topic-copy"><h3>Uniform &amp; dress</h3><p>Know what to wear, and when to wear it.</p></div><span class="topic-action">Explore the dress code <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=tardiness"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-clock"></use></svg></span><div class="topic-copy"><h3>Attendance</h3><p>Get clarity on absences and arriving late.</p></div><span class="topic-action">Check attendance rules <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=phone"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-phone"></use></svg></span><div class="topic-copy"><h3>Phones &amp; gadgets</h3><p>Understand where your devices fit into the day.</p></div><span class="topic-action">Ask about gadgets <span aria-hidden="true">↗</span></span></a>
         </div>
         <p class="home-topics-note">Mas comfortable sa Taglish? <a href="/chat/?topic=taglish">Puwede rin. Try it <span aria-hidden="true">→</span></a></p>
       </section>
 
-      <section class="home-how home-section" id="how-it-works" aria-labelledby="howTitle">
-        <div class="home-how-intro"><p class="home-kicker">Less searching. More understanding.</p><h2 id="howTitle">From “not sure”<br />to “got it.”</h2><p>A simpler way to explore the handbook, with the original source always within reach.</p><a class="home-secondary-link" href="/chat/">Give it a try <span aria-hidden="true">→</span></a></div>
+      <section class="home-how home-section" id="how-it-works" aria-labelledby="howTitle" tabindex="-1">
+        <div class="home-how-intro"><p class="home-kicker">Less searching. More understanding.</p><h2 id="howTitle">From “not sure” <br />to “got it.”</h2><p>A simpler way to explore the handbook, with the original source always within reach.</p><a class="home-secondary-link" href="/chat/">Give it a try <span aria-hidden="true">→</span></a></div>
         <ol class="home-steps">
           <li><span class="step-number" aria-hidden="true">01</span><div><h3>Ask naturally</h3><p>Type a question in English or Taglish. You don’t need to know the section or the exact wording.</p></div></li>
           <li><span class="step-number" aria-hidden="true">02</span><div><h3>Explore a handbook-based answer</h3><p>The assistant finds relevant passages. In AI mode, it explains them; in demo mode, it shows direct excerpts.</p></div></li>
@@ -92,8 +99,8 @@
         </ol>
       </section>
 
-      <section class="home-faq home-section" id="faq" aria-labelledby="faqTitle">
-        <div class="home-section-heading"><div><p class="home-kicker">Before you jump in</p><h2 id="faqTitle">A few things to know.</h2></div></div>
+      <section class="home-faq home-section" id="faq" aria-labelledby="faqTitle" tabindex="-1">
+        <div class="home-faq-intro"><p class="home-kicker">Before you jump in</p><h2 id="faqTitle">A few things to know.</h2><p>A quick introduction to the assistant, your privacy, and what to expect.</p><a class="home-secondary-link" href="/chat/?panel=terms">Read the Terms of use <span aria-hidden="true">↗</span></a></div>
         <div class="home-faq-list">
           <details><summary>Is this an official STI service?</summary><p>No. STI Assist AI is an unofficial student prototype, not affiliated with or endorsed by STI. It uses the STI High School Student Handbook (July 2026). Official announcements and your school office take priority.</p></details>
           <details><summary>Do I need to create an account?</summary><p>No sign-in is needed. On your first visit to the chat, you’ll be asked to read and accept the Terms of use. Your acceptance is remembered in this browser.</p></details>
@@ -102,10 +109,11 @@
         </div>
       </section>
 
-      <section class="home-final-cta" aria-labelledby="readyTitle"><span class="cta-spark" aria-hidden="true"><svg class="icon"><use href="#h-spark"></use></svg></span><h2 id="readyTitle">Your next question starts here.</h2><p>Let’s make the handbook a little easier to navigate.</p><a class="home-button" href="/chat/">Start a conversation <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a></section>
+      <section class="home-final-cta" aria-labelledby="readyTitle"><div><p class="home-kicker">One question at a time</p><h2 id="readyTitle">Make sense of your school day.</h2><p>Let’s make the handbook a little easier to navigate.</p></div><a class="home-button" href="/chat/">Start a conversation <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a></section>
     </main>
 
     <footer class="home-footer"><a class="home-brand" href="/" aria-label="STI Assist AI home"><span class="home-brand-mark" aria-hidden="true">STI</span><span>Assist<span class="home-brand-ai">AI</span></span></a><p>An unofficial student prototype.<br />Built around the STI High School Student Handbook.</p><nav aria-label="Footer"><a href="/chat/?panel=terms">Terms of use</a><a href="#privacy">Privacy</a><a href="/chat/">Open chat <span aria-hidden="true">↗</span></a></nav></footer>
+    <a class="home-back-top" id="homeBackTop" href="#homeMain" aria-label="Back to top" hidden><svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a>
     <script src="/js/home.js" defer></script>
   </body>
 </html>
