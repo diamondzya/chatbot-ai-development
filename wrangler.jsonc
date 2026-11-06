@@ -47,6 +47,9 @@
   "vars": {
     "NODE_ENV": "production",
     "LOG_LEVEL": "info",
+    // Verified with grounded handbook questions on 2026-11-06. The previous
+    // DeepSeek model stalled before returning tokens during live checks.
+    "AI_MODEL": "nvidia/nemotron-3.5-bolt-e4b",
     // Query-time semantic search in the Worker requires provider embeddings:
     // the index must have been built with EMBEDDING_PROVIDER=nvidia. A locally
     // embedded index still works, but retrieval falls back to BM25 keywords.

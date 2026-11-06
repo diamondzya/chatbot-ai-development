@@ -279,6 +279,7 @@ the handbook or indexer changes.
 | `ASSETS` | Static assets binding | serves `public/` |
 | `HANDBOOK_INDEX` | KV namespace | the generated handbook index (key `handbook-index`) |
 | `AI_API_KEY` | secret | NVIDIA NIM chat + vision key |
+| `AI_MODEL` | var (`nvidia/nemotron-3.5-bolt-e4b`) | production chat model, configured in `wrangler.jsonc` |
 | `EMBEDDING_API_KEY` | secret, optional | falls back to `AI_API_KEY` |
 | `EMBEDDING_PROVIDER` | var (`nvidia`) | selects provider query embeddings |
 | `NODE_ENV`, `LOG_LEVEL` | vars | production logging |
