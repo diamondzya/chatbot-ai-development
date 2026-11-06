@@ -401,6 +401,19 @@ test('the client renders the welcome state without horizontal overflow', { skip 
   assert.equal(state.overflow, false);
 });
 
+test('more topics expands and collapses without sending a question', { skip }, async () => {
+  const visibleCards = 'document.querySelectorAll("#startCards .start-card:not([hidden])").length';
+  assert.equal(await evaluate(visibleCards), 4);
+  const total = await evaluate('document.querySelectorAll("#startCards .start-card").length');
+  await evaluate('document.getElementById("topicsToggle").click()');
+  assert.equal(await evaluate(visibleCards), total);
+  assert.equal(await evaluate('document.getElementById("topicsToggle").getAttribute("aria-expanded")'), 'true');
+  assert.equal(await evaluate('document.getElementById("messageList").childElementCount'), 0);
+  await evaluate('document.getElementById("topicsToggle").click()');
+  assert.equal(await evaluate(visibleCards), 4);
+  assert.equal(await evaluate('document.getElementById("topicsToggle").getAttribute("aria-expanded")'), 'false');
+});
+
 test('answers render with sources, citation links, and follow-up chips', { skip }, async () => {
   await ask('What should I do if I forget my school ID?');
   const state = await evaluate(`({

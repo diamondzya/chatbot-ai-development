@@ -149,6 +149,8 @@
     handbookOpen: $('handbookOpen'),
     welcome: $('welcome'),
     startCards: $('startCards'),
+    topicsToggle: $('topicsToggle'),
+    attachmentPrivacy: $('attachmentPrivacy'),
     messageList: $('messageList'),
     typingRow: $('typingRow'),
     typingText: $('typingText'),
@@ -365,7 +367,8 @@
     const el = els.chatScroll;
     if (!el) return;
     if (!force && !isNearBottom()) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth && !reduceMotion ? 'smooth' : 'instant' });
   }
 
   function updateJumpLatest() {
@@ -808,7 +811,9 @@
     els.sidebarSuggestions.replaceChildren();
     els.startCards.replaceChildren();
 
-    suggestions.forEach((item) => {
+    const expanded = els.topicsToggle.getAttribute('aria-expanded') === 'true';
+    els.topicsToggle.hidden = suggestions.length <= 4;
+    suggestions.forEach((item, index) => {
       const side = document.createElement('button');
       side.type = 'button';
       side.className = 'suggestion-item';
@@ -822,6 +827,7 @@
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'start-card';
+      card.hidden = index >= 4 && !expanded;
       card.dataset.question = item.question;
       card.title = item.question;
       const iconWrap = document.createElement('span');
@@ -849,6 +855,8 @@
     state.maxChars = Number(meta?.limits?.maxMessageChars) || 2000;
     els.messageInput.maxLength = state.maxChars;
     state.imageUploadsEnabled = !(meta?.capabilities && meta.capabilities.imageUploads === false);
+    els.attachBtn.hidden = !state.imageUploadsEnabled;
+    els.attachmentPrivacy.hidden = !state.imageUploadsEnabled;
     if (!state.imageUploadsEnabled) {
       els.attachBtn.title = 'Image uploads are not available on this deployment';
     }
@@ -1190,6 +1198,11 @@
 
     const wrap = document.createElement('div');
     wrap.className = 'bubble-wrap';
+
+    const speaker = document.createElement('p');
+    speaker.className = 'message-speaker';
+    speaker.textContent = message.role === 'user' ? 'You' : 'STI Assist AI';
+    wrap.appendChild(speaker);
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
@@ -2369,7 +2382,8 @@
       return;
     }
     card.open = true;
-    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    card.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'instant' : 'smooth' });
     card.classList.add('is-highlighted');
     setTimeout(() => card.classList.remove('is-highlighted'), 1800);
   }
@@ -2854,6 +2868,15 @@
     els.startCards.addEventListener('click', (event) => {
       const button = event.target.closest('[data-question]');
       if (button) askSuggestion(button.dataset.question);
+    });
+
+    els.topicsToggle.addEventListener('click', () => {
+      const expanded = els.topicsToggle.getAttribute('aria-expanded') !== 'true';
+      els.topicsToggle.setAttribute('aria-expanded', String(expanded));
+      els.topicsToggle.querySelector('span').textContent = expanded ? 'Fewer topics' : 'More topics';
+      Array.from(els.startCards.children).forEach((card, index) => {
+        card.hidden = index >= 4 && !expanded;
+      });
     });
 
     els.messageList.addEventListener('click', (event) => {

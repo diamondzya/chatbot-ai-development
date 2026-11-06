@@ -5,8 +5,8 @@
    handbook PDF are never cached.
    ========================================================================== */
 
-const CACHE = 'sti-assist-shell-v3';
-const SHELL = ['/', '/chat/', '/css/style.css', '/css/home.css', '/js/app.js', '/js/home.js', '/js/theme.js', '/favicon.svg', '/manifest.webmanifest'];
+const CACHE = 'sti-assist-shell-v4';
+const SHELL = ['/', '/chat/', '/css/style.css', '/css/home.css', '/css/chat.css', '/js/app.js', '/js/home.js', '/js/theme.js', '/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

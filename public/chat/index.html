@@ -15,6 +15,7 @@
     <!-- Applied before the stylesheet so the saved theme never flashes. -->
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/chat.css" media="screen" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to conversation</a>
@@ -180,7 +181,7 @@
         </button>
 
         <nav class="sidebar-nav" aria-label="Suggested handbook questions">
-          <p class="sidebar-label">Start here</p>
+          <p class="sidebar-label">Explore topics</p>
           <div class="suggestion-list" id="sidebarSuggestions"></div>
         </nav>
 
@@ -237,14 +238,14 @@
             <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
           </button>
           <div class="topbar-title">
-            <h1>Handbook assistant</h1>
-            <p id="topbarSub">STI High School · July 2026</p>
-          </div>
-          <div class="topbar-actions">
+            <h1>STI Assist AI</h1>
             <span class="mode-pill is-loading" id="headerMode" data-short="…">
               <span class="status-dot" aria-hidden="true"></span>
               <span id="headerModeText">Connecting</span>
             </span>
+            <p id="topbarSub">STI High School · July 2026</p>
+          </div>
+          <div class="topbar-actions">
             <button class="icon-btn palette-btn" id="paletteBtn" type="button" aria-label="Open quick actions" title="Quick actions (Ctrl+K)">
               <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
             </button>
@@ -291,36 +292,47 @@
         <main class="chat-scroll" id="main">
           <section class="welcome" id="welcome">
             <div class="welcome-head">
-              <p class="eyebrow"><span class="eyebrow-dot"></span> STI High School · Student Handbook 2026</p>
-              <h2>School rules,<br /><span>without the guesswork.</span></h2>
+              <div class="welcome-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-cap"></use></svg>
+                <span><svg class="icon"><use href="#i-sparkles"></use></svg></span>
+              </div>
+              <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Your handbook companion</p>
+              <h2>A school question?<br /><span>Let’s figure it out.</span></h2>
               <p class="welcome-copy">
-                Ask about IDs, uniforms, tardiness, gadgets, discipline, and campus services. Every answer is grounded in the handbook and cites the section and printed page.
+                Get answers from the STI High School handbook, with sources you can check. Ask in English or Taglish.
               </p>
 
               <div class="trust-row" aria-label="What this assistant provides">
                 <span class="trust-chip">
                   <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
-                  Grounded in the 2026 handbook
+                  2026 handbook
                 </span>
                 <span class="trust-chip">
                   <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
-                  Page-level citations
+                  Cited sources
                 </span>
                 <span class="trust-chip">
                   <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
-                  No sign-in needed
+                  No sign-in
                 </span>
               </div>
             </div>
 
+            <div class="starter-heading">
+              <h3>Not sure where to start?</h3>
+              <button class="topics-toggle" id="topicsToggle" type="button" aria-expanded="false" aria-controls="startCards" hidden>
+                <span>More topics</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </button>
+            </div>
             <div class="start-grid" id="startCards" aria-label="Example questions"></div>
 
             <div class="notice-card">
               <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
               <div>
-                <strong>Verify before you rely on it.</strong>
+                <strong>A little guidance, not the final word.</strong>
                 <p>
-                  This is an unofficial prototype, not an STI service. AI answers can be wrong or incomplete. For decisions that matter, confirm with your adviser or school office.
+                  This unofficial assistant can make mistakes. Confirm important policies with your adviser or school office.
                 </p>
               </div>
             </div>
@@ -387,7 +399,7 @@
                 name="message"
                 rows="1"
                 maxlength="2000"
-                placeholder="Ask about school rules…"
+                placeholder="Ask your question…"
                 autocomplete="off"
                 spellcheck="true"
               ></textarea>
@@ -401,7 +413,7 @@
 
             <div class="composer-meta">
               <span class="composer-hint" id="composerHint">
-                <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line · <kbd>Ctrl</kbd> <kbd>K</kbd> actions
+                <kbd>Enter</kbd> to send <span>·</span> <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line
               </span>
               <button
                 class="mode-toggle"
@@ -421,10 +433,11 @@
           <p class="footer-note">
             <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
             <span>
-              Images stay in server memory for up to <span id="ttlNote">30</span> minutes and are never saved to disk. Conversations are lost on refresh.
-              <button class="inline-link" id="aboutLink" type="button">About &amp; privacy</button>
+              Conversations are lost on refresh.
+              <span id="attachmentPrivacy">Images expire after <span id="ttlNote">30</span> minutes.</span>
+              <button class="inline-link" id="aboutLink" type="button">Privacy</button>
               ·
-              <button class="inline-link" id="termsLink" type="button">Terms of use</button>
+              <button class="inline-link" id="termsLink" type="button">Terms</button>
             </span>
           </p>
         </div>
