@@ -7,7 +7,8 @@ import { getAttachment } from './attachments.js';
 import { isUnansweredAnswer, recordUnansweredQuestion } from './gapLog.js';
 import { getIndexMeta, searchHandbook, tokenize } from './handbookSearch.js';
 import { formatPageRange, buildMessages } from './promptBuilder.js';
-import { analyseMessage, GUIDE_RESPONSES } from './safetyFilter.js';
+import { GUIDE_RESPONSES } from './safetyFilter.js';
+import { analyseConversation } from './conversationContext.js';
 
 const MIN_SOURCE_SCORE = 0.2;
 const MAX_MODEL_SOURCES = 5;
@@ -161,22 +162,8 @@ function buildFollowUps({ question, sources = [] }) {
 
 function buildRetrievalQuery(message, history, imageAnalysis, analysis = null) {
   const question = String(message || '').trim();
-  let query = question;
-  const previousUser = Array.isArray(history)
-    ? [...history].reverse().find((turn) => turn?.role === 'user' && typeof turn.content === 'string')
-    : null;
-  const anaphoric =
-    /^(?:what about|how about|and|then|what if|pwede ba|paano naman|ano naman|yun|yon|that|it)\b/i.test(
-      question
-    );
-  // A short message is not automatically a follow-up. "can I kill my teacher"
-  // stands on its own, and merging it with an unrelated earlier topic pushed
-  // that topic to the top of the source citations. Merge only when the question
-  // refers back explicitly, or carries no school subject of its own.
-  const carriesOwnSubject = (analysis?.schoolTerms?.length || 0) > 0;
-  if (previousUser && (anaphoric || (question.length < 40 && !carriesOwnSubject))) {
-    query = `${previousUser.content} ${question}`;
-  }
+  const contextual = analysis || analyseConversation(question, history);
+  let query = contextual.contextQuery || question;
   if (imageAnalysis) {
     query += ` ${String(imageAnalysis).replace(/\s+/g, ' ').slice(0, 900)}`;
   }
@@ -452,8 +439,10 @@ export async function handleChat({
 } = {}) {
   const startedAt = Date.now();
   const question = String(message || '').trim();
-  let analysis = analyseMessage(question);
   const hasAttachment = Boolean(attachmentId);
+  // A newly attached image supplies the referent for "this", rather than an
+  // earlier handbook topic or capability introduction.
+  let analysis = analyseConversation(question, hasAttachment && isImageReference(question) ? [] : history);
 
   // A question about an uploaded image often has no handbook keywords
   // ("What does this say?"). Give those a chance to reach the vision step,
@@ -461,7 +450,7 @@ export async function handleChat({
   if (
     hasAttachment &&
     analysis.action === 'guide' &&
-    analysis.category === 'out_of_scope' &&
+    ['out_of_scope', 'clarification'].includes(analysis.category) &&
     isImageReference(question)
   ) {
     analysis = {

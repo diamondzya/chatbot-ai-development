@@ -255,26 +255,18 @@ test('a short standalone question is not merged with an unrelated earlier topic'
   // "can I kill my teacher" is only 21 characters, but it is complete on its
   // own. Merging it with an earlier uniform question used to put "School
   // Uniform" at the top of the citations for a violence question.
-  const standalone = chatTesting.buildRetrievalQuery('can I kill my teacher', UNIFORM_HISTORY, '', {
-    schoolTerms: ['teacher'],
-  });
+  const standalone = chatTesting.buildRetrievalQuery('can I kill my teacher', UNIFORM_HISTORY, '');
   assert.equal(standalone, 'can I kill my teacher');
 });
 
 test('questions that genuinely depend on the previous turn are still merged', () => {
-  const anaphoric = chatTesting.buildRetrievalQuery('what about slippers?', UNIFORM_HISTORY, '', {
-    schoolTerms: ['slippers'],
-  });
+  const anaphoric = chatTesting.buildRetrievalQuery('what about slippers?', UNIFORM_HISTORY, '');
   assert.match(anaphoric, /uniform requirements/i);
 
-  const subjectless = chatTesting.buildRetrievalQuery('is that allowed?', UNIFORM_HISTORY, '', {
-    schoolTerms: [],
-  });
+  const subjectless = chatTesting.buildRetrievalQuery('is that allowed?', UNIFORM_HISTORY, '');
   assert.match(subjectless, /uniform requirements/i);
 
-  const shortNoSubject = chatTesting.buildRetrievalQuery('and grade 11?', UNIFORM_HISTORY, '', {
-    schoolTerms: [],
-  });
+  const shortNoSubject = chatTesting.buildRetrievalQuery('and grade 11?', UNIFORM_HISTORY, '');
   assert.match(shortNoSubject, /uniform requirements/i);
 });
 
@@ -300,6 +292,19 @@ test('every source given to the model is also shown as a source card', () => {
       `printed page ${source.page} was given to the model but has no source card`
     );
   }
+});
+
+test('retrieval preserves the original topic across chained follow-ups', () => {
+  const history = [
+    ...UNIFORM_HISTORY,
+    { role: 'user', content: 'what about slippers?' },
+    { role: 'assistant', content: 'See the uniform rules.' },
+    { role: 'user', content: 'is that allowed?' },
+  ];
+  const query = chatTesting.buildRetrievalQuery('what else', history, '');
+  assert.match(query, /uniform requirements.*slippers.*what else/i);
+  const standalone = chatTesting.buildRetrievalQuery('can I charge inside the room', history, '');
+  assert.equal(standalone, 'can I charge inside the room');
 });
 
 test('source merging removes duplicate excerpt groups and respects the display cap', () => {

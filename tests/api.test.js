@@ -112,6 +112,44 @@ test('unrelated questions are redirected without a handbook citation', async () 
   assert.equal(response.body.sources.length, 0);
 });
 
+test('charging reaches handbook retrieval and a follow-up keeps that topic', async () => {
+  const message = 'can I charge inside the room';
+  const first = await request(app).post('/api/chat').send({ message }).expect(200);
+  assert.equal(first.body.mode, 'demo');
+  assert.equal(first.body.sources[0].section, 'Electronic Gadget Rule');
+  assert.ok(first.body.sources.some((source) => source.section === 'Use of School Facilities'));
+  const next = await request(app).post('/api/chat').send({
+    message: 'what else',
+    history: [
+      { role: 'user', content: message },
+      { role: 'assistant', content: first.body.answer },
+    ],
+  }).expect(200);
+  assert.equal(next.body.mode, 'demo');
+  assert.ok(next.body.sources.some((source) => source.section === 'Electronic Gadget Rule'));
+});
+
+test('capability conversation works through JSON and streaming chat endpoints', async () => {
+  const message = 'hi, what can yo  do';
+  const first = await request(app).post('/api/chat').send({ message }).expect(200);
+  assert.equal(first.body.safety.category, 'meta');
+  assert.match(first.body.answer, /English or Taglish/);
+  const followUp = await request(app).post('/api/chat/stream').send({
+    message: 'what else',
+    history: [
+      { role: 'user', content: message },
+      { role: 'assistant', content: first.body.answer },
+    ],
+  }).expect(200);
+  const event = followUp.text.match(/event: done\ndata: (.+)/);
+  assert.ok(event, followUp.text);
+  const done = JSON.parse(event[1]);
+  assert.equal(done.safety.category, 'meta');
+  assert.match(done.answer, /I can also help/);
+  assert.notEqual(done.answer, first.body.answer);
+  assert.equal(done.sources.length, 0);
+});
+
 test('weapon concealment requests are refused with relevant discipline sources', async () => {
   const response = await request(app)
     .post('/api/chat')

@@ -260,6 +260,11 @@ const WORD_SYNONYMS = {
 };
 
 const PHRASE_SYNONYMS = [
+  // "Charge inside the room" means charging a device, not fees or an adviser
+  // being "in charge". Expand only device/charging wording into related rules.
+  [/\bcharge(?=\s+(?:(?:my|our|a|the)\s+)?(?:phone|cellphone|laptop|tablet|device|gadget|inside|in\s+(?:the\s+)?room|sa\s+(?:room|loob|klase))\b)/gi, ' charging '],
+  [/\b(?:charging|recharg(?:e|ing)|(?:mag|maki|makiki|nag|nagcha)-?charge)\b/gi, ' charging electronic gadget facilities '],
+  [/\b(?:chargers?|saksakan|outlets?|sockets?)\b/gi, ' electronic gadget facilities '],
   [/\b(no|without|walang|wala(?:ng)?)\s+(school\s+)?id\b/gi, ' id '],
   [/\b(forgot|forget|forgotten|nakalimutan|nalimutan)\s+(my|ko|ang|yung|the)?\s*(school\s+)?id\b/gi, ' forget id '],
   [/\b(lost|nawala|nawawala)\s+(my|ko|ang|yung|the)?\s*(school\s+)?id\b/gi, ' lost id '],
@@ -563,6 +568,10 @@ function topicBoost(tokens, chunk) {
   if (has('phone', 'gadget')) {
     if (section === 'Electronic Gadget Rule') boost += 0.2;
     if (section === 'Confiscation Policy') boost += 0.05;
+  }
+  if (has('charging')) {
+    if (section === 'Electronic Gadget Rule') boost += 0.15;
+    if (section === 'Use of School Facilities') boost += 0.3;
   }
   if (has('lost')) {
     if (section === 'Lost and Found Items') boost += 0.2;

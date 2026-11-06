@@ -55,6 +55,23 @@ test('misspelled uniform questions retrieve the uniform rules', async () => {
   assert.equal(result.results[0].page, 40);
 });
 
+test('charging wording retrieves related gadget rules instead of staff in-charge descriptions', async () => {
+  for (const query of [
+    'can I charge inside the room',
+    'Can I charge my phone?',
+    'Pwede ba mag-charge sa room?',
+    'Pwede makicharge?',
+  ]) {
+    const { results } = await searchHandbook(query, { topK: 5, dense: false });
+    assert.equal(results[0].section, 'Electronic Gadget Rule', query);
+    assert.equal(results[0].page, 43);
+    assert.ok(results.some((result) => result.section === 'Use of School Facilities'), query);
+    assert.ok(!results.some((result) => /Supervisor|Adviser|Refund/.test(result.section)), query);
+  }
+  const { results } = await searchHandbook('Who is in charge of the homeroom program?', { dense: false });
+  assert.ok(results.slice(0,3).some((result) => /Homeroom/.test(result.section)));
+});
+
 test('slippers, tardiness, phones, lost items, and discipline reach the right sections', async () => {
   const cases = [
     ['Can I wear slippers to school?', 'School Uniform'],

@@ -238,6 +238,19 @@ const SCHOOL_TERMS = [
   'tablet',
   'device',
   'devices',
+  'charge',
+  'charging',
+  'charger',
+  'chargers',
+  'recharge',
+  'recharging',
+  'magcharge',
+  'mag-charge',
+  'makicharge',
+  'makiki-charge',
+  'saksakan',
+  'outlet',
+  'socket',
   'exam',
   'exams',
   'examination',
@@ -553,6 +566,11 @@ const PERSONAL_DATA = [
   /\b(?:student id number|lrn)\b/,
 ];
 
+const CAPABILITIES = [
+  /^(?:what (?:else )?can (?:you|yo|u) do|how can (?:you|yo|u) help(?: me)?|can (?:you|yo|u) help(?: me)?|what can (?:you|yo|u) help(?: me)? with)$/,
+  /^(?:ano(?: pa)? (?:ang )?(?:kaya|pwede|puwede) mong (?:gawin|itulong)|paano mo ako matutulungan)$/,
+];
+
 const META = [
   /^(?:who|what) are you\??$/,
   /^(?:what can you do|how can you help|can you help(?: me)?)\??$/,
@@ -725,6 +743,14 @@ export const GUIDE_RESPONSES = Object.freeze({
     "I can't access or verify personal records such as grades, attendance, balances, student numbers, or account details. Please use the official student portal or contact your Homeroom Adviser or the Registrar. I can still explain handbook policies.",
   meta:
     "I'm STI Assist AI, an unofficial prototype that answers questions using the STI High School Student Handbook 2026 (published July 2026). I'm not an official STI service, and AI-generated answers can contain errors. When an AI provider is configured, your question and the retrieved handbook passages are sent to it. Without a key, the app runs in a clearly labelled local demo that only shows handbook excerpts.",
+  capabilities:
+    'I can help you understand the STI student handbook: ID and uniform rules, attendance and tardiness, gadgets, lost items, and discipline. Ask in English or Taglish, and you can follow up with questions like “what else?” or “can you explain that?” I’ll cite handbook pages for policy answers and say when the handbook doesn’t give a clear answer.',
+  moreCapabilities:
+    'I can also help you find handbook information about enrollment and payments, grading, library and campus facilities, guidance services, bullying concerns, and student activities. For example: “Where can I get help if I feel stressed?” or “What happens if I lose my ID?” Which topic would you like to explore?',
+  chooseTopic:
+    'Tell me a school situation or pick a topic, and we can go through it together. For example: “I forgot my ID,” “What are the gadget rules?” or “Explain the attendance policy in Taglish.” What’s on your mind?',
+  clarifyFollowUp:
+    'Which school topic would you like me to explain further? You can name the rule or describe the situation so I can find the relevant handbook section.',
   greeting:
     "Hi! I'm STI Assist AI. I can help with school rules, ID and uniform policies, tardiness, gadgets, lost items, and other handbook topics. What would you like to know?",
   selfHarm:
@@ -889,7 +915,21 @@ export function analyseMessage(rawMessage) {
     };
   }
 
-  if (META.some((pattern) => pattern.test(text))) {
+  const conversationalText = text
+    .replace(/^(?:hi|hello|hey|good (?:morning|afternoon|evening)|kumusta|kamusta)\b[\s,!.-]*(?:po\b[\s,!.-]*)?/, '')
+    .replace(/(?:[.!?]+|\s+(?:po|please))+$/g, '')
+    .trim();
+  if (anyMatch(CAPABILITIES, conversationalText)) {
+    return {
+      ...base,
+      action: 'guide',
+      category: 'meta',
+      response: GUIDE_RESPONSES.capabilities,
+      reason: 'question about assistant capabilities',
+    };
+  }
+
+  if (META.some((pattern) => pattern.test(conversationalText))) {
     return {
       ...base,
       action: 'guide',
