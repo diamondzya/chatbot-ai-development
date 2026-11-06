@@ -8,6 +8,11 @@ function isFollowUp(message) {
   const text = normalise(message).replace(/(?:[.!?]+|\s+(?:po|please))+$/g, '');
   return (
     /^(?:what else|anything else|anything more|tell me more|more|go on|continue|why|why not|how so|like what|such as|examples?|give me (?:an example|examples)|(?:can you )?explain(?: (?:more|further|that|it|this))?|ano pa|iba pa|meron pa|mayroon pa|bakit|paano|pano)$/.test(text) ||
+    // Consequences and next steps often omit both the topic and a pronoun.
+    // Keep these anchored so a complete new question ("what happens if I lose
+    // my ID?") does not inherit an unrelated earlier incident.
+    /^(?:so[, ]+)?(?:what (?:happens|(?:will|would|could|might) happen)(?: (?:next|then|to me|to us))?|what (?:are|is|would be|will be) (?:the )?(?:consequences|penalties|punishment|sanctions|next steps?)|will i get in trouble|what should i do(?: (?:next|now))?)$/.test(text) ||
+    /^(?:ano (?:ang )?(?:mangyayari|mangyayare)(?: (?:sa akin|sakin|sa amin|pagkatapos))?|(?:ano|anong) (?:ang )?(?:parusa|consequences)|ano (?:ang )?(?:dapat kong gawin|gagawin ko)(?: ngayon)?)$/.test(text) ||
     /^(?:what about|how about|and|then|what if|paano naman|ano naman|yun|yon|that|it)\b/.test(text) ||
     /\b(?:it|that|this|those|them|iyon|yan|iyan|yun|yon)\b/.test(text)
   );
@@ -68,7 +73,7 @@ export function analyseConversation(message, history = []) {
     const content = turn.content.trim().slice(0, 4000);
     const analysis = classifyTurn(content, previous);
     // A polite acknowledgement does not erase the topic being discussed.
-    if (analysis.category === 'greeting' && /^(?:thanks|thank you|salamat)\b/i.test(content) && previous) continue;
+    if (analysis.category === 'thanks') continue;
     previous = { message: content, analysis };
   }
   return classifyTurn(String(message || '').trim(), previous);

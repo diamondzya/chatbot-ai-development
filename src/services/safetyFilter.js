@@ -471,7 +471,11 @@ const SCHOOL_TERMS = [
 const POLICY_INTENT =
   /\b(?:handbook|manual|policy|policies|rule|rules|regulation|regulations|guideline|guidelines|allowed|permitted|prohibited|required|optional|penalty|penalties|sanction|sanctions|offense|offenses|violation|violations)\b/;
 
-const GREETING = /^(?:hi|hello|hey|good (?:morning|afternoon|evening)|kumusta|kamusta|magandang (?:umaga|hapon|gabi)|salamat|thank you|thanks|ok|okay|sige|bye|goodbye|paalam)(?:\s+po)?[!. ]*$/;
+const GREETING = /^(?:hi|hello|hey|good (?:morning|afternoon|evening)|kumusta|kamusta|magandang (?:umaga|hapon|gabi)|ok|okay|sige|bye|goodbye|paalam)(?:\s+po)?[!. ]*$/;
+
+// Match a complete acknowledgement, so "Thanks, can I use my phone?" still
+// reaches the policy answer instead of being swallowed by a courtesy reply.
+const THANKS = /^(?:(?:ok|okay|sige)[, ]+)?(?:thank (?:you|u)(?: very much| so much)?|thanks(?: a lot| so much)?|thx|ty|(?:maraming )?salamat)(?: po)?(?: (?:for (?:your |the )?help|sa tulong))?(?: po)?[!?. ]*$/;
 
 const SELF_HARM_CONCERN = [
   /\b(?:friend|classmate|schoolmate|someone|he|she|they|them)\b.*\b(?:wants?|is|are|plans?|trying|thinking about)\b.*\b(?:to\s+)?(?:die|kill (?:him|her|them)self|end (?:his|her|their) life|take (?:his|her|their) own life|hurt (?:him|her|them)self|cut (?:him|her|them)self|suicid(?:e|al)|self[- ]harm)\b/,
@@ -753,6 +757,10 @@ export const GUIDE_RESPONSES = Object.freeze({
     'Which school topic would you like me to explain further? You can name the rule or describe the situation so I can find the relevant handbook section.',
   greeting:
     "Hi! I'm STI Assist AI. I can help with school rules, ID and uniform policies, tardiness, gadgets, lost items, and other handbook topics. What would you like to know?",
+  thanks:
+    "You're welcome! Happy to help.",
+  thanksTaglish:
+    'Walang anuman! Nandito lang ako kung may tanong ka pa.',
   selfHarm:
     "I'm really sorry you're going through this. I can't provide crisis counseling, but you deserve immediate support. Please tell a trusted adult now — a parent or guardian, teacher, guidance counselor, or the school nurse. If you are in immediate danger, call local emergency services (911 in the Philippines) or go to the nearest emergency room. If you can, stay with someone you trust and avoid being alone. If this is about a friend, encourage them to speak with a trusted adult and stay with them if there is immediate danger.",
   selfHarmConcern:
@@ -939,13 +947,23 @@ export function analyseMessage(rawMessage) {
     };
   }
 
+  if (THANKS.test(text)) {
+    return {
+      ...base,
+      action: 'guide',
+      category: 'thanks',
+      response: /\bsalamat\b/.test(text) ? GUIDE_RESPONSES.thanksTaglish : GUIDE_RESPONSES.thanks,
+      reason: 'expression of thanks',
+    };
+  }
+
   if (GREETING.test(text)) {
     return {
       ...base,
       action: 'guide',
       category: 'greeting',
       response: GUIDE_RESPONSES.greeting,
-      reason: 'greeting or thanks',
+      reason: 'greeting or short acknowledgement',
     };
   }
 
