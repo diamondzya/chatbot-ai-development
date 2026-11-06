@@ -225,6 +225,11 @@ API URLs throughout; the binding preserves request headers and streams SSE
 responses directly. The Worker continues to hold the AI secrets and handbook
 KV binding.
 
+The backend's public `workers.dev` route and preview URLs are disabled in
+`wrangler.jsonc` (`workers_dev: false`, `preview_urls: false`). Pages reaches
+it through the internal service binding, making `pages.dev` the sole public
+website. Keep these settings when deploying the backend.
+
 Configuration lives in `pages/wrangler.jsonc`, with API routes in
 `pages/functions/`. There is no frontend build step.
 

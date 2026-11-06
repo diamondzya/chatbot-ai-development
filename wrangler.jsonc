@@ -14,6 +14,9 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "sti-assist-ai",
   "main": "worker/index.js",
+  // Pages is the public site. This backend is reached through CHAT_API only.
+  "workers_dev": false,
+  "preview_urls": false,
 
   // Compatibility date >= 2026-08-04 enables nodejs_compat (and the node:http
   // server needed for Express) by default; the flag below is kept explicit for
