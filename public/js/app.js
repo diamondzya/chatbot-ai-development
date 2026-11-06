@@ -126,6 +126,7 @@
   const $ = (id) => document.getElementById(id);
 
   const els = {
+    appShell: $('appShell'),
     sidebar: $('sidebar'),
     sidebarOverlay: $('sidebarOverlay'),
     sidebarClose: $('sidebarClose'),
@@ -624,8 +625,10 @@
   }
 
   function openModal({ title, body, actions, locked = false, initialFocus = null }) {
+    if (modalLocked && !locked) return;
     lastFocused = document.activeElement;
     modalLocked = locked;
+    els.appShell.inert = true;
     els.modalTitle.textContent = title;
     els.modalBody.innerHTML = body;
     els.modalFoot.replaceChildren();
@@ -675,6 +678,7 @@
     // A locked modal (the terms gate) can only be closed by accepting it.
     if (modalLocked) return;
     els.modalBackdrop.hidden = true;
+    els.appShell.inert = !state.termsAccepted;
     document.body.classList.remove('modal-open');
     els.modalBody.replaceChildren();
     if (lastFocused && typeof lastFocused.focus === 'function') {
@@ -1400,10 +1404,12 @@
   function updateComposer() {
     const length = els.messageInput.value.length;
     const ready = attachmentReady();
-    const canSend = !state.busy && (length > 0 || ready);
+    const canSend = state.termsAccepted && !state.busy && (length > 0 || ready);
 
     els.sendBtn.disabled = !canSend;
-    els.attachBtn.disabled = state.busy;
+    els.messageInput.disabled = !state.termsAccepted;
+    els.attachBtn.disabled = !state.termsAccepted || state.busy;
+    els.micBtn.disabled = !state.termsAccepted || state.busy;
     els.attachBtn.hidden = !state.imageUploadsEnabled;
     els.removeAttachment.disabled = state.busy;
 
@@ -1601,6 +1607,7 @@
   }
 
   function handleFile(file) {
+    if (!state.termsAccepted) return;
     if (!file) return;
     if (state.busy) {
       showToast('Wait for the current answer before changing the image.', 'info');
@@ -2107,8 +2114,10 @@
     state.termsAccepted = true;
     saveTermsAcceptance();
     forceCloseModal();
+    updateComposer();
+    applyEntryIntent();
     showToast('Terms accepted. Ask about the handbook anytime.', 'success');
-    if (window.matchMedia('(min-width: 961px)').matches) {
+    if (els.modalBackdrop.hidden && window.matchMedia('(min-width: 961px)').matches) {
       els.messageInput.focus();
     }
   }
@@ -2118,8 +2127,8 @@
     const foot = openModal({
       title: 'Terms of use',
       locked: true,
-      initialFocus: '#termsAgreeCheck',
-      body: `${termsHtml()}
+      initialFocus: '#termsIntro',
+      body: `<p id="termsIntro" tabindex="-1">Before your first conversation, please review these terms. <a href="/">Back to home</a></p>${termsHtml()}
         <label class="terms-consent">
           <input type="checkbox" id="termsAgreeCheck" />
           <span>I have read and understood the Terms of use, and I accept them.</span>
@@ -2165,7 +2174,7 @@
           <strong>You chose not to accept the Terms of use.</strong> The assistant cannot be used until they are accepted.
         </div>
         <p>
-          You can review the terms again whenever you are ready. If you do not agree, close this tab to leave the assistant.
+          You can review the terms again whenever you are ready, or <a href="/">return to the home page</a>.
         </p>
       `,
       actions: [
@@ -2697,6 +2706,7 @@
     };
 
     els.micBtn.addEventListener('click', () => {
+      if (!state.termsAccepted) return;
       if (recording) {
         recognition?.stop();
         return;
@@ -2998,6 +3008,33 @@
   // Start
   // ------------------------------------------------------------------------
 
+  // Landing-page topics become editable drafts only after acceptance. Never
+  // auto-send a question or accept arbitrary prompt text from a URL.
+  function applyEntryIntent() {
+    if (!state.termsAccepted) return;
+    const url = new URL(window.location.href);
+    const topic = url.searchParams.get('topic');
+    const panel = url.searchParams.get('panel');
+    const topics = new Map([
+      ['id', FALLBACK_SUGGESTIONS[0].question],
+      ['tardiness', FALLBACK_SUGGESTIONS[1].question],
+      ['phone', FALLBACK_SUGGESTIONS[2].question],
+      ['uniform', FALLBACK_SUGGESTIONS[3].question],
+      ['taglish', FALLBACK_SUGGESTIONS[6].question],
+    ]);
+    if (url.searchParams.has('topic') || url.searchParams.has('panel')) {
+      url.searchParams.delete('topic');
+      url.searchParams.delete('panel');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+    if (topics.has(topic)) {
+      els.messageInput.value = topics.get(topic);
+      autoGrow();
+      updateComposer();
+    }
+    if (panel === 'terms') showTerms();
+  }
+
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', () => {
@@ -3010,6 +3047,7 @@
   function init() {
     state.clientId = getClientId();
     state.termsAccepted = Boolean(readTermsAcceptance());
+    els.appShell.inert = !state.termsAccepted;
     initTheme();
     setPreferExcerpts(readExcerptsPreference(), { persist: false });
     setupVoiceInput();
@@ -3020,6 +3058,7 @@
     updateComposer();
     // First visit (or a terms update): block everything until accepted.
     if (!state.termsAccepted) showTermsGate();
+    else applyEntryIntent();
     loadMeta();
     registerServiceWorker();
   }

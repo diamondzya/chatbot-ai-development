@@ -363,4 +363,13 @@ test('unknown API routes return a JSON 404 and the page is served with security 
   assert.match(csp, /object-src 'none'/);
   assert.match(csp, /frame-ancestors 'none'/);
   assert.equal(page.headers['x-content-type-options'], 'nosniff');
+  assert.match(page.text, /id="startChatLink"/);
+  assert.doesNotMatch(page.text, /id="composer"/);
+
+  await request(app).get('/chat').expect(301).expect('Location', '/chat/');
+  const chat = await request(app).get('/chat/').expect(200);
+  assert.match(chat.text, /id="composer"/);
+  assert.match(chat.text, /id="appShell" inert/);
+  assert.match(chat.headers['cache-control'], /no-cache/);
+  assert.equal(chat.headers['x-content-type-options'], 'nosniff');
 });

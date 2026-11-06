@@ -65,7 +65,7 @@ Demo mode is fully functional for retrieval and citations. It is intentionally n
 ## Important limitations
 
 - **This is an unofficial prototype.** It is not an STI service and must not be presented as one.
-- The Terms of use gate is a client-side consent record stored in the browser. It keeps casual visitors honest but does not restrict direct API access; add real access controls before any production use.
+- The Terms of use gate records acceptance in the browser before entering the chat. Direct API access does not use this browser-side record.
 - **Live AI was verified on 2026-10-31** with a real NVIDIA key (`nvidia/nemotron-3.5-bolt-e4b` for chat, `nvidia/nemotron-3.5-super-vl-120b-a12b` for vision). Model availability is account-scoped, so a different key may need different model IDs. See [Verification status](#verification-status).
 - The index covers **printed pages 9–61** of the student-policy chapters. Appendices, forms, and the table of contents are excluded.
 - Printed page numbers are **one less** than the PDF page numbers (`printed page = PDF page − 1`).
@@ -96,9 +96,10 @@ Demo mode is fully functional for retrieval and citations. It is intentionally n
 | Backend hardening: Helmet CSP, same-origin write guard, 3 rate limiters, request IDs, secret-free errors | Verified; no stack traces in production |
 | Frontend: responsive layout, source cards, markdown with escaping, copy/retry, a11y | Verified in the browser |
 | Frontend extras: handbook-only mode, follow-up chips, inline citation links, highlighted excerpts, theme menu (light/dark/system), Ctrl+K quick actions, sidebar TOC, dictation, feedback, print styles, PWA shell | Verified in the browser and by headless-browser tests |
-| First-visit Terms of use gate | A locked modal blocks the chat, shortcuts, and storage until the terms are accepted; acceptance (version + date) is stored in the browser, and a version bump asks again |
+| Home page and chat entry | `/` introduces the assistant with topic cards, a how-it-works section, FAQs, and Start chatting; `/chat/` opens the chat. Topic links prepare an editable draft after acceptance. Both pages share the saved theme and have offline shell support |
+| First-visit Terms of use gate | A locked modal makes the chat controls inert until the terms are accepted; acceptance (version + date) is stored in the browser, and a version bump asks again. Visitors can return home from the gate |
 | Unanswered-question log ("coverage gaps") | Questions ending in the fallback are recorded without client identifiers (`data/gaps.jsonl` locally, `gap:` KV keys on the Worker) and listed with `npm run gaps` |
-| Automated tests | 117 tests (unit + worker-mode + retrieval golden set + answer eval + gap log + terms gate + headless browser) + 21 end-to-end scenarios |
+| Automated tests | 122 tests (unit + worker-mode + retrieval golden set + answer eval + gap log + terms gate + headless browser) + 21 end-to-end scenarios |
 
 **Requires future setup:**
 
@@ -204,7 +205,7 @@ Useful commands:
 npm run dev          # restart on file changes
 npm run check        # validate env, PDF, and index without starting the server
 npm run index        # rebuild data/index.json and data/handbook.json
-npm test             # run all 117 tests
+npm test             # run all 122 tests
 npm run eval         # retrieval scoreboard (hit@3 and page accuracy)
 npm run eval:answers # answer-level scoreboard (citations, fallbacks, refusals)
 npm run gaps         # list unanswered questions logged for handbook gaps
@@ -263,7 +264,7 @@ npm run dev:worker        # wrangler dev on http://localhost:8787
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs the handbook-free unit subset (`npm run
-test:ci`, 73 tests) on every push and pull request across Node 20, 22, and 24,
+test:ci`, 74 tests) on every push and pull request across Node 20, 22, and 24,
 and deploys the Worker on `main` once the repository secrets
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. The full local
 suite (`npm test`) still covers retrieval, API, browser, and gap-log behavior
@@ -807,7 +808,7 @@ The assistant never provides instructions for weapons, violence, self-harm, chea
 npm test
 ```
 
-The suite uses Node's built-in test runner and `supertest`; it currently contains **117 tests**, including a retrieval evaluation over a golden question set, an answer-level evaluation scorer, headless-browser checks of the client, and Worker-mode tests that run the same Express app with a synthetic index in a fake KV binding:
+The suite uses Node's built-in test runner and `supertest`; it currently contains **122 tests**, including a retrieval evaluation over a golden question set, an answer-level evaluation scorer, headless-browser checks of the client, and Worker-mode tests that run the same Express app with a synthetic index in a fake KV binding:
 
 - Safety and scope classification, including threats, self-harm, weapon concealment, rule evasion, prompt injection, false claims, and out-of-scope redirects.
 - Index metadata, page mapping, retrieval ranking for ID, uniforms, slippers, tardiness, gadgets, lost items, discipline, weapons, and cheating.
@@ -833,7 +834,7 @@ node scripts/debug-safety.js       # print safety classifications for sample mes
 node scripts/debug-search.js       # print retrieval rankings for sample queries
 ```
 
-A GitHub Actions workflow (`.github/workflows/ci.yml`) runs the handbook-free subset (`npm run test:ci`, 73 tests) on Node 20, 22, and 24 for every push and pull request, and deploys the Worker on `main` once the Cloudflare repository secrets are set.
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs the handbook-free subset (`npm run test:ci`, 74 tests) on Node 20, 22, and 24 for every push and pull request, and deploys the Worker on `main` once the Cloudflare repository secrets are set.
 
 Tests intentionally set `ENABLE_DENSE_RETRIEVAL=false` and use mocked provider fetches, so they run without an API key or network model calls. **Passing tests do not prove a live AI provider works.** See below.
 
@@ -857,7 +858,7 @@ adding a key to confirm AI mode end to end.
 
 ### Manual smoke test
 
-1. Start the server and open the UI in a fresh browser profile (or clear site data). Accept the Terms of use gate; confirm the chat is unusable until then and that the gate does not reappear after a reload.
+1. Start the server and open `/` in a fresh browser profile (or clear site data). Explore the homepage, then select **Start chatting** to enter `/chat/`. Accept the Terms of use gate; confirm the chat is unusable until then and that the gate does not reappear after a reload. Return home and select a topic: it should prepare an editable draft without sending it.
 2. Confirm the badge says **Demo · not AI** when no key is configured.
 3. Ask: “What should I do if I forget my school ID?” — expect the ID section, p. 39.
 4. Ask in Taglish: “Nakalimutan ko ID ko, makakapasok pa ba ako?” — expect the ID section.
@@ -907,9 +908,12 @@ Enable verbose errors during development with `DEBUG=1` for the index script. Se
 ```
 STI Chatbot/
 ├── public/
-│   ├── index.html              # UI shell, inline SVG sprite, quick actions, disclaimer
+│   ├── index.html              # home: introduction, topics, how it works, FAQs
+│   ├── chat/index.html         # chat shell, terms gate, quick actions, citations
 │   ├── css/style.css           # responsive design, dark theme, print styles, reduced motion
+│   ├── css/home.css            # responsive landing-page layout using shared theme tokens
 │   ├── js/app.js               # client state, uploads, markdown, citations, palette, feedback
+│   ├── js/home.js              # home theme toggle, privacy link, service-worker registration
 │   ├── js/theme.js             # pre-paint theme bootstrap (avoids a light flash)
 │   ├── _headers                # security headers for Workers Static Assets
 │   ├── sw.js                   # service worker: offline shell, never caches API/PDF
@@ -944,7 +948,7 @@ STI Chatbot/
 │   ├── debug-safety.js
 │   ├── debug-search.js
 │   └── smoke-live.js           # end-to-end checks against a running server
-├── tests/                      # 117 tests incl. retrieval eval, answer eval, headless browser
+├── tests/                      # 122 tests incl. retrieval eval, answer eval, headless browser
 ├── deploy/sti-assist.service   # systemd unit sample
 ├── Dockerfile                  # container image (index must be built first)
 ├── wrangler.jsonc              # Workers config: static assets, KV binding, /api/* worker-first
@@ -975,7 +979,7 @@ Verified locally in this workspace:
 - About/privacy modal, source expansion, copy/retry controls, and status badges.
 - SSE streaming end to end against a mock OpenAI-compatible provider: `sources` arrives before the first `delta`, the final `done` event carries the verified answer, and client disconnects abort the provider request. Live-provider streaming uses the same path.
 - Citation deep links: printed page 39 maps to `/handbook.pdf#page=40`; the PDF route serves the indexed document with `noindex` and private caching.
-- **117 automated tests passing**, including the golden-set retrieval evaluation (24 cases with hit@3 and page-accuracy thresholds, now covering the appendix content), nine answer-eval scorer checks (fabricated and missing citations, fallback honesty, refusal categories, failed requests, and an injected citation regression that must fail the run), a scope check for the appendix lyrics/creed and wellbeing wording (added after the answer-level evaluation flagged them as redirected), five gap-log checks (fallback detection, redaction and truncation, KV writes with TTL, local JSONL writes, and an end-to-end demo fallback through `handleChat`), seven headless-browser checks of the client (terms gate, streamed answer, citations, theme persistence, quick actions), eleven Worker-mode tests (KV index loading and isolate caching, Taglish retrieval, capabilities/meta, SSE, safety filter, missing-KV behavior, and wrangler.jsonc wiring), and provider-timeout tests (idle-timeout resets on a slow stream, a pre-token stall retried once, and recovery).
+- **122 automated tests passing**, including the golden-set retrieval evaluation (24 cases with hit@3 and page-accuracy thresholds, now covering the appendix content), nine answer-eval scorer checks (fabricated and missing citations, fallback honesty, refusal categories, failed requests, and an injected citation regression that must fail the run), a scope check for the appendix lyrics/creed and wellbeing wording (added after the answer-level evaluation flagged them as redirected), five gap-log checks (fallback detection, redaction and truncation, KV writes with TTL, local JSONL writes, and an end-to-end demo fallback through `handleChat`), eleven headless-browser checks of the client (home-to-chat navigation, topic drafts, mobile layout, shared themes, JavaScript-free links, offline shells, terms gate, streamed answer, citations, and quick actions), eleven Worker-mode tests (KV index loading and isolate caching, Taglish retrieval, capabilities/meta, SSE, safety filter, missing-KV behavior, and wrangler.jsonc wiring), and provider-timeout tests (idle-timeout resets on a slow stream, a pre-token stall retried once, and recovery).
 - **Worker runtime verified locally with `wrangler dev` on 2026-11-01**: static assets with `_headers` security headers, `/api/health` and `/api/meta` in AI mode, a real NVIDIA answer citing the ID Card p. 39, Taglish retrieval and answer, SSE streaming (sources first at ~0.2 s, 87 delta events, one `done`, zero errors) for the gadget rule p. 43, image uploads returning the explicit 501 message, and `/handbook.pdf` returning 404.
 - **Live `wrangler deploy` verified on 2026-11-01** (workers.dev, free plan): KV index loaded (171 chunks, pp. 9–61), AI answers with correct citations (ID p. 39, tardiness p. 37, gadgets p. 43), Taglish SSE stream (first event ~0.6 s, 156 deltas, zero errors), `capabilities` reporting `cloudflare-workers` with uploads/PDF off, `/handbook.pdf` 404, `501 image_uploads_unavailable`. Cold-start CPU measured at ~87 ms, above the free plan's 10 ms window but tolerated as documented; one transient 502 occurred immediately after the first deploy and did not reproduce in five follow-up requests or any later checks.
 - `npm run check` reporting a valid configuration.

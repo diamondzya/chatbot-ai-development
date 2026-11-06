@@ -1,7 +1,7 @@
 /* ==========================================================================
    Headless-browser checks for the client behaviors that unit tests cannot see:
-   the first-visit terms gate, streaming answers, citation links, follow-up
-   chips, the theme menu, and the quick-actions palette.
+   the home-to-chat flow, first-visit terms gate, streaming answers, citation
+   links, follow-up chips, the theme menu, and the quick-actions palette.
 
    Uses the Chrome DevTools Protocol directly (no test framework dependency).
    Skips itself when no Chromium-based browser or no global WebSocket exists,
@@ -103,9 +103,11 @@ async function acceptTermsIfShown() {
 }
 
 async function navigate(url, { acceptTerms = true } = {}) {
+  // Wait for the new document, including when navigating to the same URL.
+  await evaluate('window.__stiLeaving = true');
   await send('Page.navigate', { url });
-  await waitFor('document.readyState === "complete"', 15000, 'page load');
-  await waitFor('Boolean(document.getElementById("startCards"))', 15000, 'app shell');
+  await waitFor('window.__stiLeaving !== true && document.readyState === "complete"', 15000, 'page load');
+  await waitFor('Boolean(document.getElementById("startCards") || document.getElementById("homeMain"))', 15000, 'page shell');
   if (acceptTerms) await acceptTermsIfShown();
 }
 
@@ -133,7 +135,7 @@ before(async () => {
   if (!canRun) return;
 
   process.env.NODE_ENV = 'test';
-  process.env.AI_API_KEY = '';
+  process.env.AI_API_KEY = 'replace_with_your_actual_key';
   process.env.ENABLE_DENSE_RETRIEVAL = 'false';
   process.env.RATE_LIMIT_API_PER_MINUTE = '1000';
   process.env.RATE_LIMIT_CHAT_PER_MINUTE = '200';
@@ -143,7 +145,8 @@ before(async () => {
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   const { port } = server.address();
-  globalThis.__stiTestUrl = `http://127.0.0.1:${port}/`;
+  globalThis.__stiHomeUrl = `http://127.0.0.1:${port}/`;
+  globalThis.__stiTestUrl = `${globalThis.__stiHomeUrl}chat/`;
 
   profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sti-browser-test-'));
   const debugPort = 9377;
@@ -195,6 +198,7 @@ before(async () => {
 
   await send('Runtime.enable');
   await send('Page.enable');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
 });
 
 after(async () => {
@@ -218,6 +222,26 @@ after(async () => {
   }
 });
 
+test('the homepage introduces the assistant before opening chat', { skip }, async () => {
+  await navigate(globalThis.__stiHomeUrl);
+  const home = await evaluate(`({
+    heading: document.querySelector('h1').innerText,
+    chat: document.getElementById('startChatLink').getAttribute('href'),
+    composer: Boolean(document.getElementById('composer')),
+    topics: document.querySelectorAll('.home-topic').length,
+    stored: localStorage.getItem('sti-terms-accepted'),
+    apiCalls: performance.getEntriesByType('resource').filter(r => new URL(r.name).pathname.startsWith('/api/')).length,
+  })`);
+  assert.match(home.heading, /school day/);
+  assert.equal(home.chat, '/chat/');
+  assert.equal(home.composer, false);
+  assert.equal(home.topics, 4);
+  assert.equal(home.stored, null);
+  assert.equal(home.apiCalls, 0, 'the landing page does not initialize the chatbot');
+  await evaluate(`document.getElementById('startChatLink').click()`);
+  await waitFor(`location.pathname === '/chat/' && Boolean(document.getElementById('termsAgreeCheck'))`);
+});
+
 test('the first visit is gated by the terms of use', { skip }, async () => {
   await navigate(globalThis.__stiTestUrl, { acceptTerms: false });
 
@@ -227,12 +251,14 @@ test('the first visit is gated by the terms of use', { skip }, async () => {
     closeHidden: document.getElementById('modalClose').hidden,
     agreeDisabled: document.getElementById('termsAgreeBtn').disabled,
     stored: localStorage.getItem('sti-terms-accepted'),
+    inert: document.getElementById('appShell').inert,
   })`);
   assert.equal(gate.open, true, 'the gate must open on a first visit');
   assert.match(gate.title, /Terms of use/i);
   assert.equal(gate.closeHidden, true, 'a locked gate has no close button');
   assert.equal(gate.agreeDisabled, true, 'agree stays disabled until the checkbox is ticked');
   assert.equal(gate.stored, null, 'nothing is stored before acceptance');
+  assert.equal(gate.inert, true, 'background chat controls are inaccessible before acceptance');
 
   // The chat is blocked while the gate is open: submitting does nothing.
   await evaluate(`(() => {
@@ -292,10 +318,76 @@ test('the first visit is gated by the terms of use', { skip }, async () => {
 
   const stored = await evaluate(`JSON.parse(localStorage.getItem('sti-terms-accepted'))`);
   assert.equal(stored.version, '1');
+  assert.equal(await evaluate(`document.getElementById('appShell').inert`), false);
 
   // Acceptance persists across reloads: the gate does not come back.
   await navigate(globalThis.__stiTestUrl, { acceptTerms: false });
   assert.equal(await evaluate(`document.getElementById('modalBackdrop').hidden`), true);
+});
+
+test('topic links preserve the terms gate and prepare an editable draft', { skip }, async () => {
+  // A previous terms version must require a new acceptance, including deep links.
+  await evaluate(`localStorage.setItem('sti-terms-accepted', JSON.stringify({ version: 'old' }))`);
+  await navigate(`${globalThis.__stiTestUrl}?topic=id`, { acceptTerms: false });
+  assert.equal(await evaluate(`document.getElementById('messageInput').value`), '');
+  assert.equal(await evaluate(`document.getElementById('modalBackdrop').hidden`), false);
+  await evaluate(`document.getElementById('termsDeclineBtn').click()`);
+  await evaluate(`document.querySelector('#modalBody a[href="/"]').click()`);
+  await waitFor(`location.pathname === '/' && Boolean(document.getElementById('homeMain'))`);
+  await evaluate(`document.querySelector('.home-topic[href="/chat/?topic=id"]').click()`);
+  await waitFor(`location.pathname === '/chat/' && Boolean(document.getElementById('termsAgreeCheck'))`);
+  await acceptTermsIfShown();
+  assert.equal(
+    await evaluate(`document.getElementById('messageInput').value`),
+    'What should I do if I forget my school ID?'
+  );
+  assert.equal(await evaluate(`document.querySelectorAll('.message').length`), 0, 'a topic is not automatically sent');
+  assert.equal(await evaluate(`document.getElementById('sendBtn').disabled`), false);
+  assert.equal(await evaluate(`location.search`), '', 'the consumed topic is removed from the URL');
+  await evaluate(`document.querySelector('.home-link').click()`);
+  await waitFor(`location.pathname === '/' && Boolean(document.getElementById('homeMain'))`);
+  await evaluate(`document.getElementById('startChatLink').click()`);
+  await waitFor(`location.pathname === '/chat/' && Boolean(document.getElementById('appShell')) && !document.getElementById('appShell').inert`);
+  assert.equal(await evaluate(`document.getElementById('modalBackdrop').hidden`), true);
+  await navigate(`${globalThis.__stiTestUrl}?topic=unrecognized`);
+  assert.equal(await evaluate(`document.getElementById('messageInput').value`), '');
+  await navigate(`${globalThis.__stiTestUrl}?panel=terms`);
+  assert.match(await evaluate(`document.getElementById('modalTitle').textContent`), /Terms of use/);
+  await evaluate(`document.getElementById('modalClose').click()`);
+  assert.equal(await evaluate(`document.getElementById('appShell').inert`), false);
+});
+
+test('the homepage supports mobile, shared themes, FAQs, and JavaScript-free navigation', { skip }, async () => {
+  await navigate(globalThis.__stiHomeUrl);
+  for (const width of [1440, 768, 390, 320]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 640 });
+    assert.equal(await evaluate(`document.documentElement.scrollWidth > window.innerWidth + 1`), false, `no overflow at ${width}px`);
+    assert.equal(await evaluate(`(() => {
+      const rect = document.getElementById('startChatLink').getBoundingClientRect();
+      return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth;
+    })()`), true, `the main action fits at ${width}px`);
+  }
+  await evaluate(`document.getElementById('homeThemeBtn').click()`);
+  const theme = await evaluate(`localStorage.getItem('sti-theme')`);
+  assert.ok(['dark', 'light'].includes(theme));
+  await navigate(globalThis.__stiTestUrl);
+  assert.equal(await evaluate(`document.documentElement.getAttribute('data-theme') || 'light'`), theme);
+  await navigate(`${globalThis.__stiHomeUrl}#privacy`);
+  assert.equal(await evaluate(`document.getElementById('privacy').open`), true);
+  await evaluate('window.__stiLeaving = true');
+  await send('Emulation.setScriptExecutionDisabled', { value: true });
+  try {
+    const result = await send('Page.navigate', { url: globalThis.__stiHomeUrl });
+    assert.ok(result.result.frameId);
+    await waitFor(`window.__stiLeaving !== true && document.readyState === 'complete' && Boolean(document.getElementById('startChatLink'))`);
+    // CDP evaluation is still available while page scripts are disabled.
+    assert.equal(await evaluate(`document.getElementById('startChatLink').getAttribute('href')`), '/chat/');
+    assert.equal(await evaluate(`document.getElementById('homeThemeBtn').hidden`), true);
+  } finally {
+    await send('Emulation.setScriptExecutionDisabled', { value: false });
+    await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+    await evaluate(`localStorage.setItem('sti-theme', 'light')`);
+  }
 });
 
 test('the client renders the welcome state without horizontal overflow', { skip }, async () => {
@@ -389,4 +481,24 @@ test('Ctrl+K opens the palette and can switch the theme', { skip }, async () => 
 test('handbook-only toggle stays hidden while the server is in demo mode', { skip }, async () => {
   const hidden = await evaluate(`document.getElementById('excerptsToggle').hidden`);
   assert.equal(hidden, true);
+});
+
+test('offline navigation keeps the homepage and chat shells separate', { skip }, async () => {
+  await navigate(globalThis.__stiHomeUrl);
+  await evaluate('navigator.serviceWorker.ready');
+  await waitFor('Boolean(navigator.serviceWorker.controller)');
+  await send('Network.enable');
+  await send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+  try {
+    await navigate(globalThis.__stiHomeUrl);
+    assert.equal(await evaluate(`Boolean(document.getElementById('homeMain'))`), true);
+    // This URL was never visited online: the service worker must choose the
+    // cached chat shell, not its old unconditional homepage fallback.
+    await navigate(`${globalThis.__stiTestUrl}?topic=uniform&offline-check=1`);
+    assert.equal(await evaluate(`document.getElementById('messageInput').value`), 'What are the uniform requirements?');
+    assert.equal(await evaluate(`Boolean(document.getElementById('homeMain'))`), false);
+    await waitFor(`document.getElementById('headerMode').classList.contains('is-offline')`);
+  } finally {
+    await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  }
 });

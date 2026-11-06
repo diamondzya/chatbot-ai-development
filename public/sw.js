@@ -5,8 +5,8 @@
    handbook PDF are never cached.
    ========================================================================== */
 
-const CACHE = 'sti-assist-shell-v1';
-const SHELL = ['/', '/css/style.css', '/js/app.js', '/js/theme.js', '/favicon.svg', '/manifest.webmanifest'];
+const CACHE = 'sti-assist-shell-v2';
+const SHELL = ['/', '/chat/', '/css/style.css', '/css/home.css', '/js/app.js', '/js/home.js', '/js/theme.js', '/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -54,8 +54,12 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() =>
-        caches.match(request).then((cached) => cached || caches.match('/').then((shell) => shell || Response.error()))
-      )
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (request.mode !== 'navigate') return Response.error();
+        const chat = url.pathname === '/chat' || url.pathname.startsWith('/chat/');
+        return (await caches.match(chat ? '/chat/' : '/')) || Response.error();
+      })
   );
 });

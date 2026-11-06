@@ -530,6 +530,27 @@ img {
   gap: 10px;
 }
 
+.home-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 8px 4px;
+  color: #a6b9d8;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.home-link .icon {
+  width: 15px;
+  height: 15px;
+  transform: rotate(180deg);
+}
+
+.home-link:hover {
+  color: #fff;
+}
+
 .sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -2114,6 +2135,7 @@ kbd {
 
 .modal-foot {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
   padding: 12px 19px;
@@ -2162,6 +2184,11 @@ kbd {
 
 .primary-btn:hover {
   background: var(--blue-700);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  box-shadow: none;
 }
 
 .danger-btn {

@@ -4,464 +4,108 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1c3d" />
-    <meta
-      name="description"
-      content="STI Assist AI is an unofficial handbook assistant that answers STI High School policy questions with section and page citations."
-    />
     <meta name="color-scheme" content="light dark" />
-    <title>STI Assist AI — Student Handbook Assistant</title>
+    <meta name="description" content="A little clarity for your school day. Explore STI High School handbook rules in English or Taglish, with sources you can check. No sign-in needed." />
+    <title>STI Assist AI — A little clarity for your school day</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- Applied before the stylesheet so the saved theme never flashes. -->
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/home.css" />
   </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to conversation</a>
-
+  <body class="home-page">
+    <a class="skip-link" href="#homeMain">Skip to content</a>
     <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
-      <symbol id="i-menu" viewBox="0 0 24 24">
-        <path d="M4 7h16M4 12h16M4 17h16" />
-      </symbol>
-      <symbol id="i-plus" viewBox="0 0 24 24">
-        <path d="M12 5v14M5 12h14" />
-      </symbol>
-      <symbol id="i-send" viewBox="0 0 24 24">
-        <path d="M21 3 10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8 21 3Z" />
-      </symbol>
-      <symbol id="i-paperclip" viewBox="0 0 24 24">
-        <path d="m20.4 11.6-8.9 8.9a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
-      </symbol>
-      <symbol id="i-x" viewBox="0 0 24 24">
-        <path d="M6 6l12 12M18 6 6 18" />
-      </symbol>
-      <symbol id="i-copy" viewBox="0 0 24 24">
-        <rect x="9" y="9" width="11" height="11" rx="2" />
-        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-      </symbol>
-      <symbol id="i-refresh" viewBox="0 0 24 24">
-        <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
-      </symbol>
-      <symbol id="i-trash" viewBox="0 0 24 24">
-        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-      </symbol>
-      <symbol id="i-shield" viewBox="0 0 24 24">
-        <path d="M12 3 5 6v5c0 4.6 3 8.1 7 10 4-1.9 7-5.4 7-10V6l-7-3Z" />
-        <path d="m9.5 12 1.8 1.8 3.5-3.6" />
-      </symbol>
-      <symbol id="i-book" viewBox="0 0 24 24">
-        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v18H6.5A2.5 2.5 0 0 0 4 23V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v18h4.5A2.5 2.5 0 0 1 20 23V5.5Z" />
-      </symbol>
-      <symbol id="i-sparkles" viewBox="0 0 24 24">
-        <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z" />
-        <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14ZM5 15l.7 1.7L7.5 17l-1.8.7L5 19.5l-.7-1.8L2.5 17l1.8-.3L5 15Z" />
-      </symbol>
-      <symbol id="i-badge" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <circle cx="9" cy="10" r="2" />
-        <path d="M5.8 17c.5-2 1.7-3 3.2-3s2.7 1 3.2 3M14.5 9h4M14.5 13h4" />
-      </symbol>
-      <symbol id="i-clock" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3.5 2" />
-      </symbol>
-      <symbol id="i-phone" viewBox="0 0 24 24">
-        <rect x="6" y="2" width="12" height="20" rx="2.5" />
-        <path d="M11 18h2" />
-      </symbol>
-      <symbol id="i-shirt" viewBox="0 0 24 24">
-        <path d="m8 3-5 3 2.5 4L8 8.5V21h8V8.5l2.5 1.5L21 6l-5-3a4 4 0 0 1-8 0Z" />
-      </symbol>
-      <symbol id="i-search" viewBox="0 0 24 24">
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="m16 16 5 5" />
-      </symbol>
-      <symbol id="i-chat" viewBox="0 0 24 24">
-        <path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9Z" />
-        <path d="M8 9h8M8 13h5" />
-      </symbol>
-      <symbol id="i-info" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 11v5M12 8h.01" />
-      </symbol>
-      <symbol id="i-alert" viewBox="0 0 24 24">
-        <path d="M10.3 4.1 2.6 18a2 2 0 0 0 1.8 3h15.2a2 2 0 0 0 1.8-3L13.7 4.1a2 2 0 0 0-3.4 0Z" />
-        <path d="M12 9v4M12 17h.01" />
-      </symbol>
-      <symbol id="i-image" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <circle cx="8.5" cy="9.5" r="1.5" />
-        <path d="m3 17 5-5 4 4 3-3 6 6" />
-      </symbol>
-      <symbol id="i-check" viewBox="0 0 24 24">
-        <path d="m5 12 4.5 4.5L19 6.5" />
-      </symbol>
-      <symbol id="i-lock" viewBox="0 0 24 24">
-        <rect x="4" y="10" width="16" height="11" rx="2" />
-        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-      </symbol>
-      <symbol id="i-cap" viewBox="0 0 24 24">
-        <path d="M2 9l10-5 10 5-10 5L2 9Z" />
-        <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5M22 9v6" />
-      </symbol>
-      <symbol id="i-chevron" viewBox="0 0 24 24">
-        <path d="m6 9 6 6 6-6" />
-      </symbol>
-      <symbol id="i-arrow" viewBox="0 0 24 24">
-        <path d="M4 12h16M14 6l6 6-6 6" />
-      </symbol>
-      <symbol id="i-file" viewBox="0 0 24 24">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
-        <path d="M14 2v6h6M8 13h8M8 17h5" />
-      </symbol>
-      <symbol id="i-globe" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9Z" />
-      </symbol>
-      <symbol id="i-sun" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="4.2" />
-        <path d="M12 2.4v2.1M12 19.5v2.1M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M2.4 12h2.1M19.5 12h2.1M4.9 19.1l1.5-1.5M17.6 6.4l1.5-1.5" />
-      </symbol>
-      <symbol id="i-moon" viewBox="0 0 24 24">
-        <path d="M20.4 14.2A8.5 8.5 0 0 1 9.8 3.6a8.5 8.5 0 1 0 10.6 10.6Z" />
-      </symbol>
-      <symbol id="i-monitor" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="12" rx="2" />
-        <path d="M8 20h8M12 16v4" />
-      </symbol>
-      <symbol id="i-mic" viewBox="0 0 24 24">
-        <rect x="9" y="3" width="6" height="11" rx="3" />
-        <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6" />
-      </symbol>
-      <symbol id="i-thumb-up" viewBox="0 0 24 24">
-        <path d="M7 11v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3Z" />
-        <path d="M7 11l3.6-7.2a2.1 2.1 0 0 1 2.9 2.4L12.7 10h4.4a2 2 0 0 1 2 2.4l-1.2 6a2 2 0 0 1-2 1.6H7" />
-      </symbol>
-      <symbol id="i-thumb-down" viewBox="0 0 24 24">
-        <path d="M17 13V3h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-3Z" />
-        <path d="M17 13l-3.6 7.2a2.1 2.1 0 0 1-2.9-2.4l.8-3.8H6.9a2 2 0 0 1-2-2.4l1.2-6a2 2 0 0 1 2-1.6H17" />
-      </symbol>
-      <symbol id="i-list" viewBox="0 0 24 24">
-        <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
-      </symbol>
+      <symbol id="h-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6" /></symbol>
+      <symbol id="h-book" viewBox="0 0 24 24"><path d="M12 5v16M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1Z" /></symbol>
+      <symbol id="h-chat" viewBox="0 0 24 24"><path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9ZM8 9h8m-8 4h5" /></symbol>
+      <symbol id="h-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 6.5" /></symbol>
+      <symbol id="h-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" /></symbol>
+      <symbol id="h-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></symbol>
+      <symbol id="h-moon" viewBox="0 0 24 24"><path d="M20.4 14.2A8.5 8.5 0 0 1 9.8 3.6a8.5 8.5 0 1 0 10.6 10.6Z" /></symbol>
+      <symbol id="h-id" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="M6 17c0-4 6-4 6 0m3-8h3m-3 4h3" /></symbol>
+      <symbol id="h-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
+      <symbol id="h-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></symbol>
+      <symbol id="h-shirt" viewBox="0 0 24 24"><path d="m8 3-5 3 2.5 4L8 8.5V21h8V8.5l2.5 1.5L21 6l-5-3a4 4 0 0 1-8 0Z" /></symbol>
     </svg>
 
-    <div class="app-shell">
-      <div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
-
-      <aside class="sidebar" id="sidebar" aria-label="Sidebar">
-        <div class="sidebar-top">
-          <button class="brand" id="brandBtn" type="button" aria-label="STI Assist AI — start a new chat">
-            <span class="brand-mark" aria-hidden="true">STI</span>
-            <span class="brand-text">
-              <strong>STI Assist AI</strong>
-              <span>Handbook companion</span>
-            </span>
-          </button>
-          <button class="icon-btn sidebar-close" id="sidebarClose" type="button" aria-label="Close menu">
-            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
-          </button>
-        </div>
-
-        <div class="sidebar-badge">
-          <svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg>
-          <span>Unofficial student prototype</span>
-        </div>
-
-        <button class="new-chat" id="newChatBtn" type="button">
-          <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
-          <span>New chat</span>
+    <header class="home-header">
+      <a class="home-brand" href="/" aria-label="STI Assist AI home">
+        <span class="home-brand-mark" aria-hidden="true">STI</span>
+        <span>Assist<span class="home-brand-ai">AI</span></span>
+      </a>
+      <nav class="home-nav" aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#topics">Explore topics</a>
+        <a href="#faq">FAQs</a>
+      </nav>
+      <div class="home-header-actions">
+        <button class="home-theme" id="homeThemeBtn" type="button" aria-label="Switch to dark theme" hidden>
+          <svg class="icon" aria-hidden="true"><use id="homeThemeIcon" href="#h-moon"></use></svg>
         </button>
-
-        <nav class="sidebar-nav" aria-label="Suggested handbook questions">
-          <p class="sidebar-label">Start here</p>
-          <div class="suggestion-list" id="sidebarSuggestions"></div>
-        </nav>
-
-        <details class="toc" id="tocBlock">
-          <summary class="sidebar-label toc-summary">
-            <svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg>
-            <span>Browse the handbook</span>
-            <svg class="icon toc-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
-          </summary>
-          <div class="toc-body" id="tocList">
-            <p class="toc-hint">Open to load the indexed sections.</p>
-          </div>
-        </details>
-
-        <div class="sidebar-spacer"></div>
-
-        <div class="handbook-card" id="handbookCard">
-          <div class="handbook-icon">
-            <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
-          </div>
-          <div>
-            <p class="handbook-title" id="handbookTitle">STI High School Student Handbook</p>
-            <p class="handbook-meta" id="handbookMeta">Published July 2026</p>
-            <p class="handbook-meta" id="handbookPages">Indexed pp. 9–61</p>
-            <a
-              class="handbook-open"
-              id="handbookOpen"
-              href="/handbook.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              hidden
-            >
-              <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
-              <span>Open handbook PDF</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="sidebar-foot">
-          <span class="connection" id="sidebarConnection">
-            <span class="status-dot" id="sidebarDot" aria-hidden="true"></span>
-            <span id="sidebarMode">Connecting…</span>
-          </span>
-          <span class="sidebar-foot-links">
-            <button class="text-btn" id="termsBtn" type="button">Terms</button>
-            <button class="text-btn" id="aboutBtn" type="button">About &amp; privacy</button>
-          </span>
-        </div>
-      </aside>
-
-      <div class="main">
-        <header class="topbar">
-          <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
-            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
-          </button>
-          <div class="topbar-title">
-            <h1>Handbook assistant</h1>
-            <p id="topbarSub">STI High School · July 2026</p>
-          </div>
-          <div class="topbar-actions">
-            <span class="mode-pill is-loading" id="headerMode" data-short="…">
-              <span class="status-dot" aria-hidden="true"></span>
-              <span id="headerModeText">Connecting</span>
-            </span>
-            <button class="icon-btn palette-btn" id="paletteBtn" type="button" aria-label="Open quick actions" title="Quick actions (Ctrl+K)">
-              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
-            </button>
-            <div class="theme-control">
-              <button class="icon-btn theme-btn" id="themeBtn" type="button" aria-label="Change theme" title="Theme" aria-haspopup="true" aria-expanded="false">
-                <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-moon"></use></svg>
-              </button>
-              <div class="theme-menu" id="themeMenu" role="menu" aria-label="Theme" hidden>
-                <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false">
-                  <svg class="icon" aria-hidden="true"><use href="#i-monitor"></use></svg>
-                  <span>System</span>
-                </button>
-                <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
-                  <svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>
-                  <span>Light</span>
-                </button>
-                <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
-                  <svg class="icon" aria-hidden="true"><use href="#i-moon"></use></svg>
-                  <span>Dark</span>
-                </button>
-              </div>
-            </div>
-            <button class="ghost-btn" id="clearBtn" type="button" title="Clear this conversation" aria-label="Clear conversation">
-              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
-              <span>Clear</span>
-            </button>
-          </div>
-        </header>
-
-        <div class="demo-banner" id="demoBanner" hidden>
-          <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
-          <p>
-            <strong>Local retrieval demo.</strong> No AI model is connected, so answers are direct handbook excerpts — not AI-generated. Add an API key to <code>.env</code> to enable written answers.
-          </p>
-        </div>
-
-        <div class="index-notice" id="indexNotice" hidden>
-          <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
-          <p>
-            <strong>The handbook changed after the search index was built.</strong> Page citations may be out of date — rerun <code>npm run index</code> and restart the server.
-          </p>
-        </div>
-
-        <main class="chat-scroll" id="main">
-          <section class="welcome" id="welcome">
-            <div class="welcome-head">
-              <p class="eyebrow"><span class="eyebrow-dot"></span> STI High School · Student Handbook 2026</p>
-              <h2>School rules,<br /><span>without the guesswork.</span></h2>
-              <p class="welcome-copy">
-                Ask about IDs, uniforms, tardiness, gadgets, discipline, and campus services. Every answer is grounded in the handbook and cites the section and printed page.
-              </p>
-
-              <div class="trust-row" aria-label="What this assistant provides">
-                <span class="trust-chip">
-                  <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
-                  Grounded in the 2026 handbook
-                </span>
-                <span class="trust-chip">
-                  <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
-                  Page-level citations
-                </span>
-                <span class="trust-chip">
-                  <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
-                  No sign-in needed
-                </span>
-              </div>
-            </div>
-
-            <div class="start-grid" id="startCards" aria-label="Example questions"></div>
-
-            <div class="notice-card">
-              <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
-              <div>
-                <strong>Verify before you rely on it.</strong>
-                <p>
-                  This is an unofficial prototype, not an STI service. AI answers can be wrong or incomplete. For decisions that matter, confirm with your adviser or school office.
-                </p>
-              </div>
-            </div>
-
-            <noscript>
-              <p class="noscript">JavaScript is required to use the chat. Please enable it and reload the page.</p>
-            </noscript>
-          </section>
-
-          <section class="message-list" id="messageList" role="log" aria-live="polite" aria-relevant="additions" hidden></section>
-
-          <div class="typing-row" id="typingRow" hidden>
-            <div class="avatar assistant-avatar" aria-hidden="true">
-              <svg class="icon"><use href="#i-cap"></use></svg>
-            </div>
-            <div class="typing-bubble" aria-label="STI Assist AI is preparing an answer">
-              <span></span><span></span><span></span>
-              <span class="typing-text" id="typingText">Searching the handbook…</span>
-            </div>
-          </div>
-
-          <div class="sources-skeleton" id="sourceSkeleton" hidden aria-hidden="true">
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row is-short"></div>
-          </div>
-        </main>
-
-        <div class="composer-wrap">
-          <button class="jump-latest" id="jumpLatest" type="button" hidden>
-            <svg class="icon" aria-hidden="true"><use href="#i-chevron"></use></svg>
-            <span>Jump to latest</span>
-          </button>
-
-          <form class="composer" id="composer" novalidate>
-            <div class="attachment-preview" id="attachmentPreview" hidden>
-              <div class="attachment-thumb-wrap">
-                <img class="attachment-thumb" id="attachmentThumb" alt="Selected image preview" />
-                <div class="upload-progress" id="uploadProgress" hidden>
-                  <div class="upload-progress-bar" id="uploadProgressBar"></div>
-                </div>
-              </div>
-              <div class="attachment-info">
-                <p class="attachment-name" id="attachmentName">image.jpg</p>
-                <p class="attachment-status" id="attachmentStatus">Uploading…</p>
-              </div>
-              <button class="icon-btn small" id="removeAttachment" type="button" aria-label="Remove image">
-                <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
-              </button>
-            </div>
-
-            <div class="composer-row">
-              <button class="icon-btn attach-btn" id="attachBtn" type="button" aria-label="Attach an image" title="Attach an image">
-                <svg class="icon" aria-hidden="true"><use href="#i-paperclip"></use></svg>
-              </button>
-              <input
-                id="fileInput"
-                class="visually-hidden"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                tabindex="-1"
-              />
-              <label class="visually-hidden" for="messageInput">Ask a question about the student handbook</label>
-              <textarea
-                class="message-input"
-                id="messageInput"
-                name="message"
-                rows="1"
-                maxlength="2000"
-                placeholder="Ask about school rules…"
-                autocomplete="off"
-                spellcheck="true"
-              ></textarea>
-              <button class="icon-btn mic-btn" id="micBtn" type="button" aria-label="Dictate a question" title="Dictate a question" hidden>
-                <svg class="icon" aria-hidden="true"><use href="#i-mic"></use></svg>
-              </button>
-              <button class="send-btn" id="sendBtn" type="submit" aria-label="Send message" disabled>
-                <svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>
-              </button>
-            </div>
-
-            <div class="composer-meta">
-              <span class="composer-hint" id="composerHint">
-                <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line · <kbd>Ctrl</kbd> <kbd>K</kbd> actions
-              </span>
-              <button
-                class="mode-toggle"
-                id="excerptsToggle"
-                type="button"
-                aria-pressed="false"
-                title="Answer with direct handbook excerpts instead of an AI-written answer"
-                hidden
-              >
-                <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
-                <span>Handbook only</span>
-              </button>
-              <span class="char-count" id="charCount">0 / 2000</span>
-            </div>
-          </form>
-
-          <p class="footer-note">
-            <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
-            <span>
-              Images stay in server memory for up to <span id="ttlNote">30</span> minutes and are never saved to disk. Conversations are lost on refresh.
-              <button class="inline-link" id="aboutLink" type="button">About &amp; privacy</button>
-              ·
-              <button class="inline-link" id="termsLink" type="button">Terms of use</button>
-            </span>
-          </p>
-        </div>
+        <a class="home-button home-button-small" href="/chat/">Open chat <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a>
       </div>
-    </div>
+    </header>
 
-    <div class="palette-backdrop" id="paletteBackdrop" hidden>
-      <div class="palette" role="dialog" aria-modal="true" aria-label="Quick actions">
-        <input
-          class="palette-input"
-          id="paletteInput"
-          type="text"
-          placeholder="Type an action or a suggestion…"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <ul class="palette-list" id="paletteList" role="listbox" aria-label="Matching actions"></ul>
-        <p class="palette-hint">
-          <kbd>↑</kbd> <kbd>↓</kbd> to navigate · <kbd>Enter</kbd> to run · <kbd>Esc</kbd> to close
-        </p>
-      </div>
-    </div>
-
-    <div class="modal-backdrop" id="modalBackdrop" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
-        <div class="modal-head">
-          <h2 id="modalTitle">About &amp; privacy</h2>
-          <button class="icon-btn" id="modalClose" type="button" aria-label="Close dialog">
-            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
-          </button>
+    <main id="homeMain">
+      <section class="home-hero" aria-labelledby="heroTitle">
+        <div class="hero-orbit" aria-hidden="true"></div>
+        <p class="home-eyebrow"><span></span> Your student handbook companion</p>
+        <h1 id="heroTitle">A little clarity for<br />your <span>school day.</span></h1>
+        <p class="home-hero-copy">School rules, everyday questions, and the “what ifs.”<br class="desktop-break" /> Find your way through the STI handbook, one conversation at a time.</p>
+        <div class="home-hero-actions">
+          <a class="home-button" id="startChatLink" href="/chat/">Start chatting <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a>
+          <a class="home-secondary-link" href="#how-it-works">See how it works <span aria-hidden="true">↗</span></a>
         </div>
-        <div class="modal-body" id="modalBody"></div>
-        <div class="modal-foot">
-          <button class="primary-btn" id="modalOk" type="button">Got it</button>
+        <p class="home-hero-note">No sign-in needed <span aria-hidden="true">·</span> English &amp; Taglish welcome</p>
+
+        <div class="home-preview" aria-label="A preview of how the assistant works">
+          <div class="preview-heading"><span><svg class="icon" aria-hidden="true"><use href="#h-spark"></use></svg> A question is a good place to start</span><span class="preview-tag">Handbook companion</span></div>
+          <a class="preview-question" href="/chat/?topic=id"><span>“What if I forget my school ID?”</span><span class="preview-send" aria-hidden="true"><svg class="icon"><use href="#h-arrow"></use></svg></span></a>
+          <div class="preview-path">
+            <span><svg class="icon" aria-hidden="true"><use href="#h-chat"></use></svg> Ask in your own words</span>
+            <span class="preview-path-arrow" aria-hidden="true">→</span>
+            <span><svg class="icon" aria-hidden="true"><use href="#h-book"></use></svg> Find relevant passages</span>
+            <span class="preview-path-arrow" aria-hidden="true">→</span>
+            <span><svg class="icon" aria-hidden="true"><use href="#h-check"></use></svg> Check the source</span>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
+      <section class="home-topics home-section" id="topics" aria-labelledby="topicsTitle">
+        <div class="home-section-heading"><div><p class="home-kicker">Made for the everyday</p><h2 id="topicsTitle">What’s on your mind?</h2></div><p>Pick a topic. We’ll help you get started.</p></div>
+        <div class="home-topic-grid">
+          <a class="home-topic" href="/chat/?topic=id"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-id"></use></svg></span><h3>IDs &amp; entry</h3><p>Forgot your ID?<br />Find out what comes next.</p><span class="topic-action">Ask about IDs <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=uniform"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-shirt"></use></svg></span><h3>Uniform &amp; dress</h3><p>Know what to wear,<br />and when to wear it.</p><span class="topic-action">Explore the dress code <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=tardiness"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-clock"></use></svg></span><h3>Attendance</h3><p>Get clarity on absences<br />and arriving late.</p><span class="topic-action">Check attendance rules <span aria-hidden="true">↗</span></span></a>
+          <a class="home-topic" href="/chat/?topic=phone"><span class="topic-icon"><svg class="icon" aria-hidden="true"><use href="#h-phone"></use></svg></span><h3>Phones &amp; gadgets</h3><p>Understand where your<br />devices fit into the day.</p><span class="topic-action">Ask about gadgets <span aria-hidden="true">↗</span></span></a>
+        </div>
+        <p class="home-topics-note">Mas comfortable sa Taglish? <a href="/chat/?topic=taglish">Puwede rin. Try it <span aria-hidden="true">→</span></a></p>
+      </section>
 
-    <script src="/js/app.js" defer></script>
+      <section class="home-how home-section" id="how-it-works" aria-labelledby="howTitle">
+        <div class="home-how-intro"><p class="home-kicker">Less searching. More understanding.</p><h2 id="howTitle">From “not sure”<br />to “got it.”</h2><p>A simpler way to explore the handbook, with the original source always within reach.</p><a class="home-secondary-link" href="/chat/">Give it a try <span aria-hidden="true">→</span></a></div>
+        <ol class="home-steps">
+          <li><span class="step-number" aria-hidden="true">01</span><div><h3>Ask naturally</h3><p>Type a question in English or Taglish. You don’t need to know the section or the exact wording.</p></div></li>
+          <li><span class="step-number" aria-hidden="true">02</span><div><h3>Explore a handbook-based answer</h3><p>The assistant finds relevant passages. In AI mode, it explains them; in demo mode, it shows direct excerpts.</p></div></li>
+          <li><span class="step-number" aria-hidden="true">03</span><div><h3>Go straight to the source</h3><p>Open the source cards to check sections and printed pages. Confirm important decisions with your school office.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="home-faq home-section" id="faq" aria-labelledby="faqTitle">
+        <div class="home-section-heading"><div><p class="home-kicker">Before you jump in</p><h2 id="faqTitle">A few things to know.</h2></div></div>
+        <div class="home-faq-list">
+          <details><summary>Is this an official STI service?</summary><p>No. STI Assist AI is an unofficial student prototype, not affiliated with or endorsed by STI. It uses the STI High School Student Handbook (July 2026). Official announcements and your school office take priority.</p></details>
+          <details><summary>Do I need to create an account?</summary><p>No sign-in is needed. On your first visit to the chat, you’ll be asked to read and accept the Terms of use. Your acceptance is remembered in this browser.</p></details>
+          <details><summary>Can I rely on every answer?</summary><p>Answers can be incomplete or incorrect, even when a page is cited. Use the source cards to verify handbook rules, and check important matters with your adviser or school office.</p></details>
+          <details id="privacy"><summary>What happens to my conversation?</summary><p>The conversation is kept in this tab’s memory and is lost when you refresh or leave the chat. Your questions go to the app’s server and, in AI mode, the configured AI provider. Unanswered questions may be logged with common personal details redacted to improve handbook coverage. Avoid sharing sensitive information. The chat’s About &amp; privacy panel has more details.</p></details>
+        </div>
+      </section>
+
+      <section class="home-final-cta" aria-labelledby="readyTitle"><span class="cta-spark" aria-hidden="true"><svg class="icon"><use href="#h-spark"></use></svg></span><h2 id="readyTitle">Your next question starts here.</h2><p>Let’s make the handbook a little easier to navigate.</p><a class="home-button" href="/chat/">Start a conversation <svg class="icon" aria-hidden="true"><use href="#h-arrow"></use></svg></a></section>
+    </main>
+
+    <footer class="home-footer"><a class="home-brand" href="/" aria-label="STI Assist AI home"><span class="home-brand-mark" aria-hidden="true">STI</span><span>Assist<span class="home-brand-ai">AI</span></span></a><p>An unofficial student prototype.<br />Built around the STI High School Student Handbook.</p><nav aria-label="Footer"><a href="/chat/?panel=terms">Terms of use</a><a href="#privacy">Privacy</a><a href="/chat/">Open chat <span aria-hidden="true">↗</span></a></nav></footer>
+    <script src="/js/home.js" defer></script>
   </body>
 </html>
